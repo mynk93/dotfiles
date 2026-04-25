@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/scripts/context-bar.sh"
+  },
+  "enabledPlugins": {
+    "proPlugins@proPlugins": true
+  },
+  "extraKnownMarketplaces": {
+    "proPlugins": {
+      "source": {
+        "source": "github",
+        "repo": "prodigal-tech/code-agent-plugins"
+      }
+    }
+  },
+  "effortLevel": "xhigh",
+  "tui": "default",
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
+}
