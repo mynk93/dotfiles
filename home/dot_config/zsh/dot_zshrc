@@ -1,0 +1,35 @@
+# ~/.config/zsh/.zshrc — interactive zsh setup.
+# (Env vars and PATH live in ~/.zshenv.)
+
+# ── History (OMZ-compatible defaults) ──────────────────────
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=10000
+
+setopt EXTENDED_HISTORY        # record command timestamp in HISTFILE
+setopt HIST_EXPIRE_DUPS_FIRST  # drop oldest dup first when HISTFILE > HISTSIZE
+setopt HIST_IGNORE_DUPS        # ignore consecutive duplicate commands
+setopt HIST_IGNORE_SPACE       # ignore commands starting with a space
+setopt HIST_VERIFY             # show expanded history command before running it
+setopt SHARE_HISTORY           # share history across all running shells
+
+# ── Plugins via antidote ────────────────────────────────────
+source "$(brew --prefix)/opt/antidote/share/antidote/antidote.zsh"
+antidote load
+
+# Bind up/down to substring-aware history search (provided by
+# zsh-users/zsh-history-substring-search). Type a prefix, press ↑ to
+# cycle through matching history entries — OMZ's default behavior.
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
+
+# ── Theme ──────────────────────────────────────────────────
+source "${ZDOTDIR:-$HOME}/themes/mynk.zsh"
+
+# ── Aliases & functions ────────────────────────────────────
+source "${ZDOTDIR:-$HOME}/aliases.zsh"
+source "${ZDOTDIR:-$HOME}/functions.zsh"
+
+# ── Machine-specific overrides ─────────────────────────────
+# Not in version control. Used for work tokens, machine-specific paths, etc.
+[[ -f "${ZDOTDIR:-$HOME}/local.zsh" ]] && source "${ZDOTDIR:-$HOME}/local.zsh"

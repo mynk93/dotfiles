@@ -1,0 +1,23 @@
+# ~/.zshenv — sourced by EVERY zsh invocation (interactive, login, scripts).
+# Keep this minimal: env vars and PATH only. No interactive setup.
+
+# Redirect zsh's per-user config files to ~/.config/zsh/.
+export ZDOTDIR="$HOME/.config/zsh"
+
+# Homebrew (Apple Silicon).
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# Local user binaries.
+export PATH="$HOME/.local/bin:$PATH"
+
+# GPG agent integration for commit signing.
+export GPG_TTY=$(tty)
+
+# Suppress Python venv activate-script (venv) PROMPT prefix — the prompt
+# renders its own venv segment.
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
+# No gap between RPROMPT and the right edge.
+export ZLE_RPROMPT_INDENT=0

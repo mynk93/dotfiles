@@ -1,0 +1,22 @@
+[user]
+	name = {{ .name }}
+	email = {{ .email }}
+{{- if .gpg_signingkey }}
+	signingkey = {{ .gpg_signingkey }}
+{{- end }}
+[alias]
+	lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+	owner = !git shortlog -sn --no-merges
+	cluster = !git log --format=format: --name-only --since='1 year ago' | sort | uniq -c | sort -nr | head -20
+	velocity = !git log --format='%ad' --date=format:'%Y-%m' | sort | uniq -c
+	bugview = !git log -i -E --grep='fix|fixes|bug|broken|bugfix' --name-only --format='' | sort | uniq -c | sort -nr | head -20
+	fire = !git log --color=always --oneline --since='1 year ago' | grep --color=never -iE 'revert|hotfix|emergency|rollback'
+{{- if .gpg_signingkey }}
+[commit]
+	gpgsign = true
+[tag]
+	gpgsign = true
+{{- end }}
+[core]
+	editor = zed --wait
+	pager = bat
