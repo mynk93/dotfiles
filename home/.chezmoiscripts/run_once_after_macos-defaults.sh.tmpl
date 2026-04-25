@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# macOS system defaults. Re-runs whenever this file's content changes.
+# Uncomment entries you want applied, then run: chezmoi apply
+
+set -euo pipefail
+
+{{- if ne .chezmoi.os "darwin" }}
+echo "Not macOS — skipping defaults."
+exit 0
+{{- end }}
+
+# ── Finder ──────────────────────────────────────────────────
+# defaults write com.apple.finder AppleShowAllFiles -bool true        # show hidden files
+# defaults write NSGlobalDomain AppleShowAllExtensions -bool true     # always show file extensions
+# defaults write com.apple.finder ShowPathbar -bool true              # show path bar at bottom of windows
+# defaults write com.apple.finder ShowStatusBar -bool true            # show status bar
+
+# ── Dock ────────────────────────────────────────────────────
+# defaults write com.apple.dock autohide -bool true                   # auto-hide
+# defaults write com.apple.dock autohide-time-modifier -float 0.3     # faster show/hide
+# defaults write com.apple.dock tilesize -int 48                      # icon size
+# defaults write com.apple.dock show-recents -bool false              # hide "recent applications"
+
+# ── Keyboard ─────────────────────────────────────────────────
+# defaults write NSGlobalDomain InitialKeyRepeat -int 15              # snappier first repeat
+# defaults write NSGlobalDomain KeyRepeat -int 2                      # snappier subsequent repeats
+# defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false  # disable accent popup; restore key repeat
+
+# ── Trackpad ─────────────────────────────────────────────────
+# defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+# defaults write -g com.apple.mouse.tapBehavior -int 1                # tap to click
+
+# ── Text input ───────────────────────────────────────────────
+# defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false  # off autocorrect
+# defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false      # off auto-capitalize
+# defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false    # off "smart" dashes
+# defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false   # off "smart" quotes
+
+# ── Restart affected apps if anything above is uncommented ───
+# killall Finder Dock SystemUIServer 2>/dev/null || true
+# echo "Some changes require logout/restart to take full effect."
