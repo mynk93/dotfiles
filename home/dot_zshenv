@@ -25,3 +25,16 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 
 # No gap between RPROMPT and the right edge.
 export ZLE_RPROMPT_INDENT=0
+
+# Default pager. moor is a Rust-based less replacement with native
+# mouse/trackpad support, ANSI-aware (passes through colours from glow
+# etc. without re-styling), and quit-on-fit by default. Used by tools
+# that honour $PAGER (man, glow, bat-as-pager via fallback chain, …).
+export PAGER='moor'
+
+# Fallback `less` defaults for the rare tool that bypasses $PAGER and
+# calls less directly:
+#   -F quit if content fits on one screen
+#   -R render raw ANSI colour escapes
+#   -X don't clear screen on exit (preserve scrollback)
+export LESS='-FRX'

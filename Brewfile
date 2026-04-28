@@ -31,3 +31,5 @@ brew "jless"      # interactive JSON viewer
 brew "glow"       # markdown renderer
 brew "chafa"      # image-in-terminal preview
 brew "mpv"        # audio/video player (wired into yazi opener)
+brew "moor"       # Rust-based less replacement (set as $PAGER) with
+                  # native mouse/trackpad scroll support
