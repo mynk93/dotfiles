@@ -1,0 +1,7 @@
+git:
+  pagers:
+    - # Pipe lazygit's diff panel through delta. --paging=never because
+      # lazygit handles its own scrolling; we only want delta's syntax
+      # highlighting + line numbers + word-level highlighting.
+      colorArg: always
+      pager: delta --paging=never

@@ -1,10 +1,29 @@
 # ~/.config/zsh/aliases.zsh — user-defined aliases.
 
-# Directory listing (mirrors what OMZ's lib/directories.zsh used to provide).
+# Directory listing. `ls` is aliased to eza; the shorthands below inherit
+# via zsh's recursive alias expansion (l → ls -lah → eza -lah).
+alias ls='eza'
 alias l='ls -lah'
 alias la='ls -lAh'
 alias ll='ls -lh'
 alias lsa='ls -lah'
+
+# File viewing — bat replaces cat (syntax highlighting + paging).
+alias cat='bat'
+
+# Markdown rendering — `view file.md` for a paged glow render.
+alias view='glow -p'
+
+# Searching — `grep` is intentionally NOT aliased to `rg`. The CLI gap
+# is large (-E, -P, --include, recursion semantics) and aliasing creates
+# more surprises than it solves. Use `rg` directly for ripgrep features.
+
+# File finding — fd replaces find. `fd PATTERN` instead of `find . -name PATTERN`.
+alias find='fd'
+
+# System monitor — btop replaces top/htop.
+alias top='btop'
+alias htop='btop'
 
 # Network
 alias ip="ipconfig getifaddr en0"
@@ -27,7 +46,7 @@ alias gitconfig="zed ~/.gitconfig"
 # Tooling shortcuts
 alias cc="claude"
 alias lzh="lazygit"
-alias lzd="lazygit"
+alias lzd="lazydocker"
 
 # Project scripts
 alias agentorc="~/dev/work/scripts/agentorc.sh"

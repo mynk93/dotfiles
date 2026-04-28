@@ -23,6 +23,58 @@ antidote load
 bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
 
+# ── Tool integrations ─────────────────────────────────────
+# Smart cd via zoxide. `z foo` jumps to the most-frecent dir matching
+# foo; `zi` opens an interactive picker. Plain `cd` still works.
+eval "$(zoxide init zsh)"
+
+# Fuzzy finder. Bindings:
+#   Ctrl-R — fuzzy history search
+#   Ctrl-T — insert file path
+#   Alt-C  — cd to a fuzzy-picked directory
+source <(fzf --zsh)
+
+# Use fd as fzf's source — respects .gitignore and is faster than find.
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+
+# ── Completion ─────────────────────────────────────────────
+# zsh-completions added new completion files via fpath (loaded above by
+# antidote). compinit activates the whole completion system.
+autoload -Uz compinit
+compinit -d "${ZDOTDIR:-$HOME}/.zcompdump-${HOST}"
+
+# Menu-style completion: a single Tab opens an interactive menu;
+# arrow keys navigate; Tab or Enter selects; Esc cancels.
+zstyle ':completion:*' menu select
+
+# Case-insensitive matching: `cd doc<Tab>` matches `Documents`.
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+
+# Group results by category, with a yellow header per group.
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{yellow}── %d ──%f'
+
+# `cd` completion: prefer subdirectories of the current path. (Default
+# behaviour also pulls in named-dirs / cdpath, which is what produces
+# the "past usage" results.)
+zstyle ':completion:*:cd:*' tag-order local-directories
+
+# Smart Tab: if the autosuggestion ghost is showing, accept it.
+# Otherwise fall through to expand-or-complete, which opens the
+# menu-select completion (overrides fzf's Tab binding from `fzf --zsh`
+# above — fzf is still reachable via Ctrl-T / Alt-C / Ctrl-R).
+_smart_tab() {
+    if [[ -n "$POSTDISPLAY" ]]; then
+        zle autosuggest-accept
+    else
+        zle expand-or-complete
+    fi
+}
+zle -N _smart_tab
+bindkey '^I' _smart_tab
+
 # ── Theme ──────────────────────────────────────────────────
 source "${ZDOTDIR:-$HOME}/themes/mynk.zsh"
 

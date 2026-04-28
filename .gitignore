@@ -9,3 +9,6 @@
 *.bak
 *.swp
 *~
+
+# zsh completion dump (generated per-host by compinit)
+.zcompdump*

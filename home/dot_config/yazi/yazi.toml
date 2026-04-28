@@ -1,0 +1,28 @@
+# Yazi config. See https://yazi-rs.github.io/docs/configuration/yazi/
+#
+# Image preview is automatic via the terminal's graphics protocol
+# (kitty/sixel/iterm2 — ghostty + cmux support kitty graphics natively),
+# with chafa as the fallback. No config needed.
+#
+# Markdown preview is wired through the glow plugin below. The plugin
+# itself is declared in package.toml and deployed by `ya pkg install`.
+
+[plugin]
+prepend_previewers = [
+    { name = "*.md", run = "glow" },
+]
+
+# ── Openers ───────────────────────────────────────────────────
+# Audio: pressing Enter on an audio file plays it via mpv in the same
+# terminal (block=true so yazi suspends until mpv exits). Press `q` in
+# mpv to return to yazi. mpv's controls: space=pause, ←/→=seek 5s,
+# ↓/↑=seek 60s, [ ]=speed, m=mute, 9/0=volume.
+[opener]
+play = [
+    { run = 'mpv "$@"', block = true, desc = "Play with mpv", for = "unix" },
+]
+
+[open]
+prepend_rules = [
+    { mime = "audio/*", use = "play" },
+]
