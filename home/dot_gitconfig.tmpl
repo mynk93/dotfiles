@@ -19,4 +19,15 @@
 {{- end }}
 [core]
 	editor = zed --wait
-	pager = bat
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	line-numbers = true
+	side-by-side = false
+	light = false
+[merge]
+	conflictstyle = diff3
+[diff]
+	colorMoved = default

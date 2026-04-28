@@ -4,6 +4,10 @@
 # Redirect zsh's per-user config files to ~/.config/zsh/.
 export ZDOTDIR="$HOME/.config/zsh"
 
+# XDG base dirs — many tools (lazygit, btop, gh, etc.) honour this and
+# will look under ~/.config/<tool>/ instead of platform-native paths.
+export XDG_CONFIG_HOME="$HOME/.config"
+
 # Homebrew (Apple Silicon).
 if [[ -x /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
