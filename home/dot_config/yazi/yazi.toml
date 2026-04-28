@@ -4,13 +4,15 @@
 # (kitty/sixel/iterm2 — ghostty + cmux support kitty graphics natively),
 # with chafa as the fallback. No config needed.
 #
-# Markdown preview is wired through the glow plugin below. The plugin
-# itself is declared in package.toml and deployed by `ya pkg install`.
+# Plugins are declared in package.toml and deployed via `ya pkg install`.
 
-[plugin]
-prepend_previewers = [
-    { name = "*.md", run = "glow" },
-]
+# Markdown preview via piper (general-purpose external-command previewer
+# from yazi-rs/plugins). Reledia/glow.yazi is deprecated; piper is the
+# upstream-recommended replacement for any tool-as-previewer wiring.
+# $w = preview pane width (dynamic), $1 = file path.
+[[plugin.prepend_previewers]]
+url = "*.md"
+run = 'piper -- CLICOLOR_FORCE=1 glow -w=$w -s=dracula "$1"'
 
 # ── Openers ───────────────────────────────────────────────────
 # Audio: pressing Enter on an audio file plays it via mpv in the same
