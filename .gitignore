@@ -12,3 +12,6 @@
 
 # zsh completion dump (generated per-host by compinit)
 .zcompdump*
+
+# Local-only Claude Code context file
+CLAUDE.md
