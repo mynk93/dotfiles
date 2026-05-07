@@ -13,6 +13,12 @@ setopt HIST_IGNORE_SPACE       # ignore commands starting with a space
 setopt HIST_VERIFY             # show expanded history command before running it
 setopt SHARE_HISTORY           # share history across all running shells
 
+# ── Line editing ──────────────────────────────────────────
+# Drop "/" from WORDCHARS so Alt-Left/Right (backward-word/forward-word)
+# and Alt-Backspace (backward-kill-word) jump per path segment instead of
+# treating /a/long/path as one word.
+WORDCHARS="${WORDCHARS//\//}"
+
 # ── Plugins via antidote ────────────────────────────────────
 source "$(brew --prefix)/opt/antidote/share/antidote/antidote.zsh"
 antidote load
