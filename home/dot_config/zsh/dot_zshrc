@@ -88,6 +88,30 @@ source "${ZDOTDIR:-$HOME}/themes/mynk.zsh"
 source "${ZDOTDIR:-$HOME}/aliases.zsh"
 source "${ZDOTDIR:-$HOME}/functions.zsh"
 
+# ── Project-local zshrc (allowlisted) ──────────────────────
+# When cd'ing into an allowlisted project, source its .zshrc.local in the
+# parent shell (so things like completions can take effect). Loads once
+# per shell per project. Allowlist exists to prevent random ./.zshrc.local
+# files from auto-running.
+autoload -U add-zsh-hook
+_project_zshrc_allowlist=(
+    "$HOME/dev/work/agent-orchestrator"
+)
+_load_project_zshrc() {
+    local prefix
+    for prefix in "${_project_zshrc_allowlist[@]}"; do
+        [[ "$PWD/" == "$prefix"/* ]] || continue
+        local key="_PROJECT_ZSHRC_LOADED_${prefix//[^A-Za-z0-9]/_}"
+        [[ -n ${(P)key} ]] && return
+        [[ -f "$prefix/.zshrc.local" ]] || return
+        source "$prefix/.zshrc.local"
+        typeset -g "$key=1"
+        return
+    done
+}
+add-zsh-hook chpwd _load_project_zshrc
+_load_project_zshrc
+
 # ── Machine-specific overrides ─────────────────────────────
 # Not in version control. Used for work tokens, machine-specific paths, etc.
 [[ -f "${ZDOTDIR:-$HOME}/local.zsh" ]] && source "${ZDOTDIR:-$HOME}/local.zsh"
