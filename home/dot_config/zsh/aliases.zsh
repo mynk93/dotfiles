@@ -21,6 +21,9 @@ alias view='glow -p'
 # File finding — fd replaces find. `fd PATTERN` instead of `find . -name PATTERN`.
 alias find='fd'
 
+# Windows-style `explorer <path>` to open in Finder (macOS `open`).
+alias explorer='open'
+
 # System monitor — btop replaces top/htop.
 alias top='btop'
 alias htop='btop'
