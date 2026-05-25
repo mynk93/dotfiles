@@ -67,19 +67,16 @@ zstyle ':completion:*:descriptions' format '%F{yellow}── %d ──%f'
 # the "past usage" results.)
 zstyle ':completion:*:cd:*' tag-order local-directories
 
-# Smart Tab: if the autosuggestion ghost is showing, accept it.
-# Otherwise fall through to expand-or-complete, which opens the
-# menu-select completion (overrides fzf's Tab binding from `fzf --zsh`
-# above — fzf is still reachable via Ctrl-T / Alt-C / Ctrl-R).
-_smart_tab() {
-    if [[ -n "$POSTDISPLAY" ]]; then
-        zle autosuggest-accept
-    else
-        zle expand-or-complete
-    fi
-}
-zle -N _smart_tab
-bindkey '^I' _smart_tab
+# Tab → menu-select completion only (overrides fzf's Tab binding from
+# `fzf --zsh` above — fzf is still reachable via Ctrl-T / Alt-C / Ctrl-R).
+# Autosuggestion acceptance is on Right Arrow instead, so Tab is always
+# free for completing filenames in the current directory.
+bindkey '^I' expand-or-complete
+
+# Right Arrow accepts the autosuggestion ghost (in addition to its default
+# forward-char behavior — zsh-autosuggestions hooks forward-char as an
+# accept widget out of the box; binding it explicitly documents the intent).
+bindkey '^[[C' autosuggest-accept
 
 # ── Theme ──────────────────────────────────────────────────
 source "${ZDOTDIR:-$HOME}/themes/mynk.zsh"
