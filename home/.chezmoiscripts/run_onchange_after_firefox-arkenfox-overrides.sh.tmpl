@@ -1,0 +1,29 @@
+#!/bin/sh
+# Sync the arkenfox user-overrides.js into the active Firefox profile.
+#
+# The override content is version-controlled in
+# .chezmoitemplates/firefox-user-overrides.js. Firefox profile dirs carry a
+# per-machine random hash (.../Profiles/<hash>.default-release/), so we resolve
+# the path at apply time rather than committing the hashed path into chezmoi.
+#
+# Note: this only places user-overrides.js; arkenfox's updater.sh is what
+# merges it into the active user.js. Run updater.sh (printed below) to apply.
+#
+# Re-runs whenever the override content changes (hash pins the trigger):
+# override-hash: {{ includeTemplate "firefox-user-overrides.js" | sha256sum }}
+set -eu
+
+profiles_dir="$HOME/Library/Application Support/Firefox/Profiles"
+profile=$(/bin/ls -d "$profiles_dir/"*.default-release 2>/dev/null | head -n1 || true)
+
+if [ -z "${profile:-}" ]; then
+  echo "arkenfox: no *.default-release profile under $profiles_dir; skipping sync"
+  exit 0
+fi
+
+cat > "$profile/user-overrides.js" <<'USER_OVERRIDES'
+{{ includeTemplate "firefox-user-overrides.js" }}
+USER_OVERRIDES
+
+echo "arkenfox: synced user-overrides.js -> $profile/user-overrides.js"
+echo "arkenfox: run \"$profile/updater.sh\" to merge overrides into user.js and apply"
