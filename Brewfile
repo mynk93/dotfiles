@@ -33,3 +33,7 @@ brew "chafa"      # image-in-terminal preview
 brew "mpv"        # audio/video player (wired into yazi opener)
 brew "moor"       # Rust-based less replacement (set as $PAGER) with
                   # native mouse/trackpad scroll support
+
+# Cloud / data platforms
+tap "databricks/tap"
+brew "databricks" # Databricks CLI
