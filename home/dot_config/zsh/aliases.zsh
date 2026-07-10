@@ -50,6 +50,7 @@ alias gitconfig="zed ~/.gitconfig"
 alias cc="claude"
 alias lzh="lazygit"
 alias lzd="lazydocker"
+alias dbx="databricks"
 
 # Project scripts
 alias agentorc="~/dev/work/scripts/agentorc.sh"
