@@ -11,5 +11,13 @@ if [[ -x /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
+# Newer Homebrew refuses to load formulae from untrusted third-party taps,
+# which would abort `brew bundle` on the databricks/tap entry
+# (see https://docs.brew.sh/Tap-Trust). Pre-tap and trust it. Both lines are
+# tolerant of failure so this stays a no-op on Homebrew versions predating
+# the trust requirement (where `brew trust` does not exist).
+brew tap databricks/tap 2>/dev/null || true
+brew trust databricks/tap 2>/dev/null || true
+
 # Install/update everything declared in Brewfile.
 brew bundle --file="{{ .chezmoi.workingTree }}/Brewfile"
