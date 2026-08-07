@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Install global Node CLIs via `npm install -g`.
+# Runs once per machine after the Brewfile has provided `node`.
+set -euo pipefail
+
+# Ensure Apple Silicon brew (hence node/npm) is on PATH when chezmoi runs this
+# from a non-login shell during bootstrap.
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+    echo "npm not found; skipping global tool install (expected node from Brewfile)." >&2
+    exit 0
+fi
+
+# `npm install -g` is idempotent — a re-run upgrades in place.
+npm install -g hunkdiff   # provides `hunk`, used by prdiff in functions.zsh
