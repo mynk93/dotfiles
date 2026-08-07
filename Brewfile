@@ -10,6 +10,11 @@ brew "antidote"
 brew "uv"         # Python package & tool manager; installs global CLIs
                   # (e.g. TrueFoundry `tfy`) via run_once_after_uv-tools script
 
+# Node tooling
+brew "node"       # runtime for the global npm CLIs installed by the
+                  # run_once_after_npm-tools script (hunkdiff, which provides
+                  # the `hunk` that functions.zsh's prdiff shells out to)
+
 # Modern CLI replacements (aliased in dot_config/zsh/aliases.zsh)
 brew "bat"        # cat
 brew "eza"        # ls
