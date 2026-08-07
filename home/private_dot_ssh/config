@@ -1,3 +1,12 @@
+# Machine-local hosts (work infrastructure, internal hostnames) live in
+# ~/.ssh/config.local, which is deliberately unmanaged and uncommitted --
+# this repo is public. A missing config.local is not an error: ssh skips
+# unreadable Include targets silently.
+#
+# Include must stay above Host *: ssh takes the FIRST value obtained for
+# each keyword, so per-host settings only win if they are read first.
+Include config.local
+
 Host *
   AddKeysToAgent yes
   UseKeychain yes
