@@ -1,0 +1,14 @@
+# Patterns match TARGET paths (relative to ~), not source paths.
+
+# ~/.aws/config carries a work SSO profile (account id + assumed-role ARN).
+# This repo is public, and unlike ssh_config the AWS config format has no
+# include mechanism to split machine-local entries out of the tracked file.
+# So the file is left wholly unmanaged: apply can't strip the profile, and a
+# sync-back can't publish it. Recreate the shared part by hand on a fresh
+# machine -- it is three lines:
+#
+#   [default]
+#   region = us-east-2
+#   output = JSON
+#
+.aws/config
