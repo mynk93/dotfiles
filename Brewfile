@@ -6,6 +6,10 @@
 brew "chezmoi"
 brew "antidote"
 
+# Python tooling
+brew "uv"         # Python package & tool manager; installs global CLIs
+                  # (e.g. TrueFoundry `tfy`) via run_once_after_uv-tools script
+
 # Modern CLI replacements (aliased in dot_config/zsh/aliases.zsh)
 brew "bat"        # cat
 brew "eza"        # ls
