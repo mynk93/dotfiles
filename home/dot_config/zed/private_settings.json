@@ -7,6 +7,11 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "cursor_shape": "bar",
+  "markdown_preview": {
+    "max_width": 1400.0,
+    "limit_content_width": true
+  },
   "minimap": {
     "thumb": "always",
     "show": "always"
