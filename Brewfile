@@ -6,6 +6,10 @@
 brew "chezmoi"
 brew "antidote"
 
+# Python tooling
+brew "uv"         # Python package & tool manager; installs global CLIs
+                  # (e.g. TrueFoundry `tfy`) via run_once_after_uv-tools script
+
 # Modern CLI replacements (aliased in dot_config/zsh/aliases.zsh)
 brew "bat"        # cat
 brew "eza"        # ls
@@ -37,3 +41,9 @@ brew "moor"       # Rust-based less replacement (set as $PAGER) with
 # Cloud / data platforms
 tap "databricks/tap"
 brew "databricks" # Databricks CLI
+
+# Networking
+brew "proxytunnel"     # tunnel TCP connections through HTTPS proxies
+cask "wireshark-app"   # packet analyzer; bundles the CLI tools (tshark,
+                       # dumpcap, editcap, capinfos) plus ChmodBPF, without
+                       # which the capture-interface list comes up empty
