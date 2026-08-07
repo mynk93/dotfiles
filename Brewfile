@@ -10,6 +10,11 @@ brew "antidote"
 brew "uv"         # Python package & tool manager; installs global CLIs
                   # (e.g. TrueFoundry `tfy`) via run_once_after_uv-tools script
 
+# Node tooling
+brew "node"       # runtime for the global npm CLIs installed by the
+                  # run_once_after_npm-tools script (hunkdiff, which provides
+                  # the `hunk` that functions.zsh's prdiff shells out to)
+
 # Modern CLI replacements (aliased in dot_config/zsh/aliases.zsh)
 brew "bat"        # cat
 brew "eza"        # ls
@@ -20,10 +25,18 @@ brew "btop"       # top / htop
 # Shell integrations (sourced in dot_config/zsh/dot_zshrc)
 brew "fzf"        # fuzzy finder (Ctrl-R, Ctrl-T, Alt-C)
 brew "zoxide"     # smart cd (z, zi)
+brew "jq"         # dot_claude/scripts/context-bar.sh parses the statusline
+                  # payload with it, so the Claude Code statusline breaks
+                  # without it. Distinct from jless, which only views JSON.
 
 # Git
 brew "git-delta"  # syntax-highlighted git diffs
 brew "lazygit"    # git TUI (alias: lzh)
+brew "gh"         # GitHub CLI; the prdiff function in functions.zsh calls it
+brew "gnupg"      # dot_gitconfig.tmpl sets gpgsign = true whenever a
+                  # signing key is configured, so without gpg every commit
+                  # on a fresh machine fails outright
+brew "pinentry-mac" # macOS passphrase prompt gpg needs to unlock that key
 
 # Containers
 brew "lazydocker" # docker TUI (alias: lzd)
@@ -37,6 +50,16 @@ brew "chafa"      # image-in-terminal preview
 brew "mpv"        # audio/video player (wired into yazi opener)
 brew "moor"       # Rust-based less replacement (set as $PAGER) with
                   # native mouse/trackpad scroll support
+
+# GUI apps this repo carries config for. Declared not as preference but
+# because the config deploys either way: without the app it lands with
+# nothing to read it, and without the font the prompt renders as tofu.
+cask "zed"                      # $EDITOR / $VISUAL in dot_zshenv and git
+                                # core.editor; settings in dot_config/zed
+cask "cmux"                     # settings in dot_config/cmux
+cask "karabiner-elements"       # settings in dot_config/private_karabiner
+cask "font-fira-code-nerd-font" # glyphs both the mynk.zsh prompt and zed's
+                                # configured font family ask for
 
 # Cloud / data platforms
 tap "databricks/tap"
