@@ -41,3 +41,6 @@ brew "moor"       # Rust-based less replacement (set as $PAGER) with
 # Cloud / data platforms
 tap "databricks/tap"
 brew "databricks" # Databricks CLI
+
+# Networking
+brew "proxytunnel" # tunnel TCP connections through HTTPS proxies
