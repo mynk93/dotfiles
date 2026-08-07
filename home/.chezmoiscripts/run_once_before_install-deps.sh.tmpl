@@ -19,5 +19,22 @@ fi
 brew tap databricks/tap 2>/dev/null || true
 brew trust databricks/tap 2>/dev/null || true
 
+# Some casks (wireshark-app) ship .pkg payloads that Homebrew installs via
+# sudo. sudo needs a TTY to prompt, and `brew bundle` gives it none partway
+# through a run, so it aborts. Cache the credential up front and hold it with
+# a keepalive for the duration of the bundle. Skipped when stdin isn't a
+# terminal (CI, `chezmoi apply` from a pipe) -- there is no password to read
+# there, so let the pkg cask fail loudly instead of hanging.
+if [[ -t 0 ]]; then
+    echo "==> Homebrew needs sudo for .pkg-bearing casks; priming credential."
+    sudo -v
+    while sudo -n true 2>/dev/null; do
+        sleep 60
+        kill -0 "$$" 2>/dev/null || break
+    done &
+    sudo_keepalive=$!
+    trap 'kill "${sudo_keepalive}" 2>/dev/null || true' EXIT
+fi
+
 # Install/update everything declared in Brewfile.
 brew bundle --file="{{ .chezmoi.workingTree }}/Brewfile"

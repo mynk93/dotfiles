@@ -43,4 +43,7 @@ tap "databricks/tap"
 brew "databricks" # Databricks CLI
 
 # Networking
-brew "proxytunnel" # tunnel TCP connections through HTTPS proxies
+brew "proxytunnel"     # tunnel TCP connections through HTTPS proxies
+cask "wireshark-app"   # packet analyzer; bundles the CLI tools (tshark,
+                       # dumpcap, editcap, capinfos) plus ChmodBPF, without
+                       # which the capture-interface list comes up empty
