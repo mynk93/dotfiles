@@ -28,11 +28,22 @@ model=$(echo "$input" | jq -r '.model.display_name // .model.id // "?"')
 cwd=$(echo "$input" | jq -r '.cwd // empty')
 dir=$(basename "$cwd" 2>/dev/null || echo "?")
 
-# Get git branch, uncommitted file count, and sync status
+# Get git branch, worktree, uncommitted file count, and sync status
 branch=""
 git_status=""
+worktree=""  # set to the checkout dir name when inside a *linked* worktree
 if [[ -n "$cwd" && -d "$cwd" ]]; then
     branch=$(git -C "$cwd" branch --show-current 2>/dev/null)
+
+    # Distinguish a linked worktree from the main working tree: in a linked
+    # worktree, --git-dir resolves to <repo>/.git/worktrees/<name>, whereas the
+    # main tree's --git-dir is just .git. (branch --show-current can't tell them
+    # apart — both report the checked-out branch.)
+    git_dir=$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)
+    if [[ "$git_dir" == *"/worktrees/"* ]]; then
+        worktree=$(basename "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)")
+    fi
+
     if [[ -n "$branch" ]]; then
         # Count uncommitted files
         file_count=$(git -C "$cwd" --no-optional-locks status --porcelain -uall 2>/dev/null | wc -l | tr -d ' ')
@@ -173,9 +184,21 @@ else
     ctx="${bar} ${C_GRAY}~${pct}% of ${max_display} tokens"
 fi
 
-# Build output: Model | Dir | Branch (uncommitted) | Context
+# Build output: Model | Dir | Worktree/Branch (uncommitted) | Context
+# Linked worktrees get a distinct 🌳 marker in the accent color so they stand
+# out from the main working tree (which keeps the plain 🔀 branch marker).
 output="${C_ACCENT}${model}${C_GRAY} | 📁 ${dir}"
-[[ -n "$branch" ]] && output+=" | 🔀 ${branch} ${git_status}"
+if [[ -n "$worktree" ]]; then
+    output+=" | ${C_ACCENT}🌳 ${worktree}${C_GRAY}"
+    if [[ -n "$branch" && "$branch" != "$worktree" ]]; then
+        output+=" 🔀 ${branch}"
+    elif [[ -z "$branch" ]]; then
+        output+=" 🔀 detached"
+    fi
+    [[ -n "$git_status" ]] && output+=" ${git_status}"
+elif [[ -n "$branch" ]]; then
+    output+=" | 🔀 ${branch} ${git_status}"
+fi
 output+=" | ${ctx}${C_RESET}"
 
 printf '%b\n' "$output"

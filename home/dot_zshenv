@@ -19,6 +19,13 @@ export PATH="$HOME/.local/bin:$PATH"
 # GPG agent integration for commit signing.
 export GPG_TTY=$(tty)
 
+# Default editor. `--wait` is required so tools that read the saved file
+# (git commit, crontab -e, gh pr create, visudo) block until zed closes
+# the buffer. Without it, zed forks immediately and the parent sees an
+# empty file. Git's core.editor in dot_gitconfig.tmpl matches.
+export EDITOR='zed --wait'
+export VISUAL="$EDITOR"
+
 # Suppress Python venv activate-script (venv) PROMPT prefix — the prompt
 # renders its own venv segment.
 export VIRTUAL_ENV_DISABLE_PROMPT=1
