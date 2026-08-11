@@ -30,6 +30,17 @@ exit 0
 # defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
 # defaults write -g com.apple.mouse.tapBehavior -int 1                # tap to click
 
+# Unbind "Look up & data detectors" (Trackpad → Point & Click). A force click
+# landing mid-drag while selecting text otherwise pops the dictionary — easy to
+# trigger on the external Magic Trackpad. Force Click itself stays enabled
+# (that's ForceSuppressed, deliberately not set); this only drops the Look Up
+# gesture. Both possible bindings are cleared so the outcome holds regardless
+# of which one the dropdown lands on by default. Needs logout/login to bind —
+# the trackpad driver reads these at session start.
+defaults write -g com.apple.trackpad.forceClick -int 0
+defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerTapGesture -int 0
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerTapGesture -int 0
+
 # ── Text input ───────────────────────────────────────────────
 # defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false  # off autocorrect
 # defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false      # off auto-capitalize
