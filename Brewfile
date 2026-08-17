@@ -65,6 +65,13 @@ cask "font-fira-code-nerd-font" # glyphs both the mynk.zsh prompt and zed's
 tap "databricks/tap"
 brew "databricks" # Databricks CLI
 
+# AI tooling
+brew "cliproxyapi" # fronts Gemini CLI, Codex, Claude Code and Qwen Code with
+                   # one OpenAI-compatible endpoint on :8317. Runs as a login
+                   # service (`brew services start cliproxyapi`); its config
+                   # (/opt/homebrew/etc/cliproxyapi.conf) and provider logins
+                   # (~/.cli-proxy-api) stay untracked — this repo is public
+
 # Networking
 brew "proxytunnel"     # tunnel TCP connections through HTTPS proxies
 cask "wireshark-app"   # packet analyzer; bundles the CLI tools (tshark,
