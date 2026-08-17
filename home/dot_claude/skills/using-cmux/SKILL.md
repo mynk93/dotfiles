@@ -1,279 +1,232 @@
 ---
 name: using-cmux
-description: Use when orchestrating cmux (the native macOS terminal multiplexer, NOT tmux) — spawning visible subagents in panes/workspaces, running work in parallel, driving sibling terminal sessions, watching dev servers or log tails, or any task where a visible/steerable worker beats a hidden Agent-tool call. Also triggers when CMUX_SOCKET_PATH is set (running inside cmux) or the user mentions cmux, subagent, worker, "in parallel", "in another pane/window", or asks to find/control a Claude session running in a different terminal.
+description: Use whenever work should run in a visible terminal the user can watch, steer, or interrupt — dev servers, log tails, watch builds, background or long-running jobs, spawning Claude subagent workers, running investigations in parallel, or finding/controlling a Claude session in another terminal. When CMUX_SOCKET_PATH is set (you are inside cmux), prefer this over Bash(run_in_background) and over hidden Agent-tool subagents for anything the user might want to see. cmux is a native macOS terminal multiplexer (NOT tmux) with a socket-controlled CLI over workspaces, panes, and tabs. Also triggers on cmux, pane, workspace, split, tab, worker, subagent, "in parallel", "in another window/pane", "keep an eye on", "watch this", "run it on the side".
 ---
 
 # Using cmux
 
-cmux is a native macOS terminal with a socket-controlled CLI. You control workspaces, panes, and surfaces programmatically — spawn them, send input, read output, close them. The CLI lives at `cmux` (in PATH).
+cmux is a native macOS terminal with a socket-controlled CLI (`cmux`, in PATH). You create workspaces, split panes, send input, read output, and close them — programmatically, in a window the user is looking at. Delegation via cmux = **a visible terminal the user can watch and interrupt**, not a hidden coroutine.
 
-The paradigm shift: delegation via cmux = **a visible terminal the user can watch and interrupt**, not a hidden coroutine. Use it when visibility, parallelism, or steerability matters. Don't use it for quick one-shot greps — the built-in Agent tool is faster and cheaper for those.
-
-## When to use this skill vs. the built-in Agent tool
+If `CMUX_SOCKET_PATH` is set, default to cmux for anything watchable: background jobs you'd otherwise hide in `Bash(run_in_background)`, subagents you'd otherwise hide in the Agent tool, servers, tails, parallel investigations. Skip cmux only for quick one-shot commands (<30s, single round, nothing to watch).
 
 | Task shape | Use |
 |---|---|
-| Single-round grep / file read / one-shot lookup | **Agent tool** (built-in) |
-| Multi-step investigation the user wants to watch | cmux subagent |
-| 2+ investigations you want to run in parallel | cmux subagents (one per workspace) |
-| Dev server, log tail, watch-build, long-lived process | cmux pane (only option that works) |
-| Work the user may want to steer mid-flight | cmux subagent |
-| User explicitly says "in another pane/window/workspace" | cmux pane |
-| Finding or killing a Claude session in a sibling workspace | cmux (read-screen + send) |
+| One-shot grep / file read / short command | Bash or Agent tool |
+| Dev server, log tail, watch-build, any long-lived process | cmux pane |
+| Multi-step investigation the user may want to watch or steer | cmux Claude worker |
+| 2–4 related investigations in parallel | cmux workers, panes in one shared workspace |
+| Independent new task | cmux worker in its own workspace |
+| User says "in another pane/window", "on the side", "keep an eye on" | cmux |
+| Find/inspect/kill a Claude session in a sibling terminal | cmux (tree + read-screen + send) |
 
-Rule of thumb: if the task is <30s and single-round, skip cmux. Otherwise consider it.
+## Mental model
 
-## Quick orientation
-
-```bash
-cmux identify         # your workspace/surface/pane refs + socket path
-cmux tree             # full topology: windows → workspaces → panes → surfaces
-cmux list-workspaces  # workspace refs + names
-cmux list-pane-surfaces  # all surfaces with their parent panes
-cmux ping             # liveness check (returns PONG)
+```
+window ⊃ workspace ⊃ pane ⊃ surface
 ```
 
-Refs are short: `window:1`, `workspace:N`, `pane:N`, `surface:N`. Use these, not UUIDs.
+- **Workspace** — sidebar entry; the tab-like unit holding one visible pane layout. Switching workspaces swaps the whole layout.
+- **Pane** — a split region of the workspace. All panes of a workspace are visible at once.
+- **Surface** — a tab *inside* a pane (each pane has its own tab strip). One surface per pane = no visible strip; several = stacked tabs, one visible at a time.
 
-## Primitives reference
+Refs (`workspace:N`, `pane:N`, `surface:N`) are **positional and renumber when things close** — never trust a stored ref across creates/closes. For handles held across topology changes, capture the UUID (`cmux list-workspaces --id-format both`, field 2) or re-resolve by name from `cmux tree` right before acting.
 
-| Action | Command |
-|---|---|
-| New workspace | `cmux new-workspace --cwd <path> --name "<role>"` |
-| New split in current workspace | `cmux new-split <left\|right\|up\|down>` |
-| Send text (trailing `\n` = Enter) | `cmux send --workspace <ref> "<text>\n"` |
-| Send named key | `cmux send-key --workspace <ref> <return\|ctrl+c\|escape\|tab>` |
-| Read current screen | `cmux read-screen --workspace <ref> [--lines N] [--scrollback]` |
-| Force refresh stale buffers | `cmux refresh-surfaces` |
-| Rename (for sidebar clarity) | `cmux rename-workspace --workspace <ref> "<name>"` / `cmux rename-tab --surface <ref> "<name>"` |
-| Close | `cmux close-workspace --workspace <ref>` / `cmux close-surface --surface <ref>` |
-| Notify | `cmux notify --title "<t>" --body "<b>"` |
+Orientation commands:
+
+```bash
+cmux identify         # your own workspace/pane/surface refs + socket path
+cmux tree [--all]     # full topology; Claude sessions title their surface "✳ <task>"
+cmux list-workspaces --id-format both   # refs + stable UUIDs + names
+cmux docs api         # deep-dive CLI contract, fetchable via curl
+```
+
+## Placement and layout
+
+**Which workspace?** A supporting shell for the task you're already doing (server, tail, scratch) goes in the *current* workspace as a split or tab. A new delegated task gets its *own* named workspace. Never dump unrelated shells into one workspace.
+
+**Max 4 visible panes per workspace.** Standard arrangements:
+
+```
+2 shells         3 shells         4 shells
+┌────┬────┐      ┌────┬────┐      ┌────┬────┐
+│ A  │ B  │      │ A  │ B  │      │ A  │ B  │
+│    │    │      ├────┴────┤      ├────┼────┤
+└────┴────┘      │    C    │      │ C  │ D  │
+                 └─────────┘      └────┴────┘
+side-by-side     2 over 1         2×2 grid
+```
+
+Put wide-output shells (test runners, log tails) in the full-width bottom slot; interactive shells in the top pair. Deviate when the content demands it — these are defaults, not law.
+
+**Beyond 4 shells — judgment call, two mechanisms:**
+
+- **Tab-stack** (occasional reference: a second log, scratch shell, docs): add a surface to the most related pane — stays in the same workspace, hidden until clicked.
+  ```bash
+  cmux new-surface --workspace "$WS" --pane pane:N   # add tab; --focus true to show it
+  cmux rename-tab --workspace "$WS" --surface <ref> "logs"
+  ```
+- **Sibling workspace** (things the user actively watches): spill panes 5+ into a second workspace named as a pair — `🤖 audit [1/2]`, `🤖 audit [2/2]`. Every shell keeps a real visible pane; the user switches like tabs.
+
+Never squeeze 5+ visible panes into one workspace.
+
+### Declarative layout (preferred when creating a workspace)
+
+`new-workspace --layout '<json>'` builds the whole arrangement in one call. Nodes: `{"direction","split","children"}`; leaves: `{"pane":{"surfaces":[{"type":"terminal","command":"..."}]}}`.
+
+- `"horizontal"` = children **side-by-side**; `"vertical"` = children **stacked** (opposite of vim/tmux jargon).
+- `split` = fraction given to the first child (0.6 → first gets 60%).
+- `command` is typed into the shell after init — same as sending it manually.
+- Multiple surfaces in one pane = tabs; the *last* listed ends up selected.
+
+The 3-shell template (verified):
+
+```bash
+CMUX_QUIET=1 cmux new-workspace --cwd "$(pwd)" --name "🤖 <role>" --layout '{
+  "direction":"vertical","split":0.6,"children":[
+    {"direction":"horizontal","split":0.5,"children":[
+      {"pane":{"surfaces":[{"type":"terminal"}]}},
+      {"pane":{"surfaces":[{"type":"terminal"}]}}]},
+    {"pane":{"surfaces":[{"type":"terminal"}]}}]}'
+```
+
+4 shells = `vertical` root, two `horizontal` children. Then `cmux tree --workspace <ref>` to map the created surface refs.
+
+### Imperative layout (adding to an existing workspace)
+
+Split order matters — earlier splits keep full width/height, later splits subdivide one region:
+
+```bash
+# 2 shells: A|B                    # 3 shells: A|B over full-width C
+cmux new-split right \             cmux new-split down  --workspace $WS --surface $S  # C
+  --workspace $WS --surface $S     cmux new-split right --workspace $WS --surface $S  # A|B
+# 4 shells: also split the bottom surface right
+```
+
+**Orchestrator + sidecar workers** — when the *current* session spawns workers into its own workspace and stays their control/triage pane, don't use the equal templates: the caller keeps its full-height pane on the left, workers stack in the right half.
+
+```bash
+# A │ B      A = caller (untouched, full height)
+# A │ C      --id-format uuids ⇒ handles survive ref renumbering (rule 2)
+B=$(CMUX_QUIET=1 cmux --id-format uuids new-split right | awk '/^OK/{print $2}')
+C=$(CMUX_QUIET=1 cmux --id-format uuids new-split down --surface "$B" | awk '/^OK/{print $2}')
+# each later split comes FROM the previous worker's surface — a bare
+# `new-split down` would split the caller's column instead
+```
+
+A third worker splits down from `$C` (caller + 3 workers = the 4-pane cap).
 
 ## Critical rules (non-negotiable)
 
-1. **Mid-string `\n` doesn't break lines.** `send "a\nb\n"` sends `a\nb` followed by Enter — `a` and `b` become one line. For multi-line input, `send` each line then `send-key return` between them. Only the final `\n` works.
+1. **Cross-workspace targeting: pass `--workspace` and `--surface` together.** `--surface surface:N` alone resolves only in your own workspace (errors otherwise). `--workspace workspace:N` alone targets that workspace's *focused* surface — ambiguous once it has multiple panes. In any multi-pane workspace, address every `send`/`send-key`/`read-screen` with both flags.
+2. **Refs drift.** `workspace:N`/`surface:N` renumber when workspaces close. Re-resolve from `cmux tree` (or hold UUIDs) before any batch of sends — especially teardowns.
+3. **Mid-string `\n` doesn't break lines.** `send "a\nb\n"` produces one line `a\nb` + Enter. Multi-line input = `send` each line, `send-key return` between, `send-key return` to submit.
+4. **`send-key` is for named keys only** (`return`, `ctrl+c`, `escape`, `tab`, `up`, `down`). Bare characters like `q` for a pager go through `send "q"`; `send-key q` silently does nothing.
+5. **Poll discipline.** `cmux refresh-surfaces` before every `read-screen` in a polling loop, and read ≥50 lines (`--lines 60`) — small reads miss the spinner and fake "idle".
+6. **Never launch workers with `--dangerously-skip-permissions`** unless the user explicitly authorized it this session. Plain `claude` is the default.
+7. **Always tear down.** Finished worker: `/exit` → `sleep 2` → `close-workspace` (re-resolve the ref first, see rule 2). Orphaned sessions burn tokens and clutter the sidebar.
 
-2. **`send-key` is for named keys only.** `return`, `ctrl+c`, `escape`, `tab`, `up`, `down`. Bare characters like `q` (to exit a pager) must use `send "q"`. `send-key q` silently does nothing.
-
-3. **Cross-workspace = `--workspace`, never `--surface`.** `--surface` only works on surfaces inside the caller's own workspace; passing a sibling workspace's surface ref errors with `"Surface is not a terminal"`. For any other workspace use `--workspace workspace:N` — it auto-resolves to that workspace's focused surface.
-
-4. **Poll discipline.** Before every `read-screen` during a polling loop, call `cmux refresh-surfaces`. Read **≥ 50 lines** (`--lines 60` is a safe default). Small line counts miss the spinner line and produce false "idle" signals.
-
-5. **Never launch with `--dangerously-skip-permissions`** unless the user has explicitly authorized it for the session. Plain `claude` is safe and runs in auto mode by default.
-
-6. **Always clean up.** After a subagent finishes: `/exit` → `sleep 2` → `close-workspace`. Orphaned Claude sessions burn tokens and clutter the sidebar.
-
-## Subagent lifecycle
-
-The core loop. Follow step-by-step; each step is cheap.
-
-### 1. Spawn a named workspace
+## Claude worker lifecycle
 
 ```bash
-WS=$(cmux new-workspace --cwd "$(pwd)" --name "🤖 Claude worker: <role>" | awk '{print $2}')
-# $WS = workspace:N
-```
-
-Always give it a name. Sidebar visibility is the whole point.
-
-### 2. Launch Claude
-
-```bash
+# 1. Spawn (single worker; for 2–4 parallel workers use the layout pattern below)
+WS=$(CMUX_QUIET=1 cmux new-workspace --cwd "$(pwd)" --name "🤖 <role>" | awk '/^OK/{print $2}')
 cmux send --workspace "$WS" "claude\n"
-```
 
-Plain `claude`, no flags. Auto mode is on by default inside the subagent.
+# 2. First run in a new cwd may show a trust prompt — detect, ask the USER to approve, never auto-accept
+sleep 3; cmux refresh-surfaces >/dev/null
+cmux read-screen --workspace "$WS" --lines 60 | grep -qiE "do you trust" && echo "trust prompt — ask user"
 
-### 3. Handle trust prompt (first run in a new cwd)
+# 3. Ready when the status line shows "? for shortcuts" (poll: sleep 2, refresh, read, ≤15 tries)
 
-```bash
-sleep 3
-cmux refresh-surfaces >/dev/null
-screen=$(cmux read-screen --workspace "$WS" --lines 60)
-if echo "$screen" | grep -qiE "do you trust|yes, i trust"; then
-  # Ask the user to approve in the pane — don't auto-accept
-  echo "Trust prompt in $WS — please approve it in the pane"
-  # Wait for user approval, then proceed
-fi
-```
+# 4. Prompt (multi-line per rule 3)
+cmux send --workspace "$WS" "<prompt>\n"
 
-### 4. Wait for ready
+# 5. Poll for completion: working markers present → still busy
+#    sleep 4; refresh; read --lines 60; grep -qE "esc to interrupt|↓ [0-9]+ tokens" && continue
 
-```bash
-for i in $(seq 1 15); do
-  sleep 2
-  cmux refresh-surfaces >/dev/null
-  screen=$(cmux read-screen --workspace "$WS" --lines 60)
-  echo "$screen" | grep -q "for shortcuts" && break
-done
-```
-
-Ready = the bottom status line shows `? for shortcuts` and a bare `❯` input.
-
-### 5. Send the prompt
-
-Single line:
-
-```bash
-cmux send --workspace "$WS" "<your prompt>\n"
-```
-
-Multi-line:
-
-```bash
-cmux send --workspace "$WS" "line 1"
-cmux send-key --workspace "$WS" return
-cmux send --workspace "$WS" "line 2"
-cmux send-key --workspace "$WS" return
-cmux send-key --workspace "$WS" return  # final Enter to submit
-```
-
-### 6. Poll for completion
-
-```bash
-for i in $(seq 1 60); do
-  sleep 4
-  cmux refresh-surfaces >/dev/null
-  screen=$(cmux read-screen --workspace "$WS" --lines 60)
-  # Working markers: spinner line, tokens counter, "esc to interrupt"
-  if echo "$screen" | grep -qE "esc to interrupt|↓ [0-9]+ tokens|ctrl\+o to expand"; then
-    continue
-  fi
-  break  # markers gone → idle/done
-done
-```
-
-If the poll hits its cap without finding idle, either bump the cap or read-screen manually to inspect.
-
-### 7. Collect the answer
-
-```bash
+# 6. Collect: the ❯ input box bounds the final answer from below
 result=$(cmux read-screen --workspace "$WS" --scrollback --lines 200)
-```
 
-Extract the final assistant turn from `$result`. The `❯` input box bounds the response from below.
-
-### 8. Notify + teardown
-
-```bash
+# 7. Notify + teardown
 cmux notify --title "Worker done" --body "<one-line summary>"
-cmux send --workspace "$WS" "/exit\n"
-sleep 2
-cmux close-workspace --workspace "$WS"
+cmux send --workspace "$WS" "/exit\n"; sleep 2
+cmux close-workspace --workspace "$WS"   # re-resolve ref if topology changed since spawn
 ```
 
-## Parallel workers pattern
+## Parallel workers — shared workspace
 
-Spawn N subagents, poll round-robin, collect all, teardown. **Cap at 4 concurrent Claude subagents** unless the user explicitly asks for more — each is real API cost.
+Related parallel investigations live as **panes in one workspace** (layout templates above), so the user compares them side-by-side. **Cap: 4 concurrent Claude workers** unless the user explicitly authorizes more — each is real API cost. Truly independent tasks or overflow beyond 4 get their own `[i/N]` sibling workspace instead.
 
 ```bash
-# Spawn
-declare -a WORKERS
-for role in "scan-auth" "scan-db" "scan-api"; do
-  ws=$(cmux new-workspace --cwd "$(pwd)" --name "🤖 $role" | awk '{print $2}')
-  cmux send --workspace "$ws" "claude\n"
-  WORKERS+=("$ws:$role")
-done
+# Spawn 3 workers in one call — claude launches in every pane
+WS=$(CMUX_QUIET=1 cmux new-workspace --cwd "$(pwd)" --name "🤖 audit workers" --layout '{
+  "direction":"vertical","split":0.6,"children":[
+    {"direction":"horizontal","split":0.5,"children":[
+      {"pane":{"surfaces":[{"type":"terminal","command":"claude"}]}},
+      {"pane":{"surfaces":[{"type":"terminal","command":"claude"}]}}]},
+    {"pane":{"surfaces":[{"type":"terminal","command":"claude"}]}}]}' | awk '/^OK/{print $2}')
 
-# (wait for ready, send prompts — loop over WORKERS)
+cmux tree --workspace "$WS"    # map surface refs → workers, e.g. surface:12 13 14
 
-# Poll round-robin until all idle
-# (check each $ws, track which are done)
-
-# Collect
-for entry in "${WORKERS[@]}"; do
-  ws="${entry%%:*}"
-  cmux read-screen --workspace "$ws" --scrollback --lines 200
-done
-
-# Teardown
-for entry in "${WORKERS[@]}"; do
-  ws="${entry%%:*}"
-  cmux send --workspace "$ws" "/exit\n"
-done
-sleep 2
-for entry in "${WORKERS[@]}"; do
-  ws="${entry%%:*}"
-  cmux close-workspace --workspace "$ws"
-done
+# Per-worker addressing from here on (rule 1: both flags):
+cmux send --workspace "$WS" --surface surface:12 "<prompt A>\n"
+cmux read-screen --workspace "$WS" --surface surface:13 --lines 60
 ```
+
+Each pane's tab title auto-updates to the worker's current task (`✳ …`), so the strip stays legible without renaming. Poll round-robin over the surfaces (rule 5), collect each with `--scrollback`, then `/exit` every worker and close the one workspace.
 
 ## Long-lived side processes
 
-Dev server, log tail, watch-build, etc. These live in their own pane and you poll them on demand — not continuously.
+Server, tail, watch-build: a split in the **current** workspace (or a tab-stacked surface if it's occasional-reference — see overflow judgment).
 
 ```bash
-# Sibling pane in the current workspace
-SURF=$(cmux new-split right | awk '{print $2}')
-cmux rename-tab --surface "$SURF" "dev-server"
-cmux send --surface "$SURF" "npm run dev\n"
-
-# Later, on demand (same workspace → --surface is fine here)
-cmux read-screen --surface "$SURF" --lines 40
+S=$(cmux new-split right | awk '/^OK/{print $2}')   # own workspace → refs resolve directly
+cmux rename-tab --surface "$S" "dev-server"
+cmux send --surface "$S" "npm run dev\n"
+# later, on demand:
+cmux read-screen --surface "$S" --lines 40
 ```
 
-Don't poll in a tight loop. Read when the user asks, or when you have another reason to check (task wants to hit the server, build just finished, etc.).
-
-## Pane reuse
-
-Before spawning a new pane, look for an idle one (shell prompt only, no running process).
-
-```bash
-cmux list-pane-surfaces
-for s in surface:1 surface:2 surface:3; do
-  screen=$(cmux read-screen --surface "$s" --lines 5)
-  # Idle heuristic: last non-empty line matches a shell prompt
-  echo "$screen" | grep -qE '[➜\$❯#] *$' && echo "$s is idle"
-done
-```
-
-Reuse saves GUI clutter. Only create new panes when none are idle.
+Read when there's a reason (user asks, build finished, task needs the server) — not in a tight loop. Before spawning a new pane, check `cmux list-pane-surfaces` for an idle shell (prompt-only screen) and reuse it.
 
 ## Notifications
 
-Two channels, different audiences:
-
 ```bash
-# In-app: sidebar badge + pane highlight. Use when cmux is foregrounded.
-cmux notify --title "Build done" --body "tests 47/47 pass"
-
-# macOS Notification Center: banner + sound. Use when user may be in another app.
-osascript -e 'display notification "Needs your input" with title "Claude" sound name "Glass"'
+cmux notify --title "Build done" --body "47/47 pass"          # in-app: badge + highlight
+osascript -e 'display notification "Needs input" with title "Claude" sound name "Glass"'  # macOS banner
 ```
 
-Fire both when the subagent needs a human decision — you don't know which app the user is in.
+Fire **both** when a worker needs a human decision — you don't know which app the user is in.
 
-## Finding and controlling sibling Claude sessions
+## Sibling Claude sessions
 
-Common ask: "there's a Claude session running in another workspace, kill it / check it / tell it X."
+"Kill/check/tell the Claude running in another workspace":
 
-1. `cmux tree` — look for surfaces labeled `"Claude Code"` or `"✳ ..."` (Claude sessions name themselves by current task).
-2. `cmux read-screen --workspace <ref> --lines 20` — confirm it's idle or see what it's doing.
-3. To kill cleanly: `cmux send --workspace <ref> "/exit\n"` → `sleep 2`. If stuck: `cmux send-key --workspace <ref> ctrl+c` first, then `/exit`.
-4. Don't `close-workspace` a sibling if it has other live panes the user cares about — close only the Claude surface if needed (`close-surface --surface <ref>`).
+1. `cmux tree --all` — Claude surfaces are titled `✳ <task>` (or `◑/◐` variants).
+2. `cmux read-screen --workspace <ref> --lines 20` (add `--surface` if multi-pane) — see what it's doing.
+3. Kill cleanly: `send --workspace <ref> "/exit\n"` → `sleep 2`. Stuck: `send-key ctrl+c` first.
+4. `close-workspace` only if nothing else lives there; otherwise `close-surface` just the Claude tab.
 
 ## Common mistakes
 
 | Mistake | Fix |
 |---|---|
-| `send "line1\nline2\n"` for multi-line | `send "line1"` + `send-key return` + `send "line2"` + `send-key return` |
-| `send-key q` to exit a pager | `send "q"` (bare chars go through send) |
-| `send "C-c"` / `send "\x03"` for Ctrl+C | `send-key ctrl+c` |
-| `--surface surface:N` for another workspace | `--workspace workspace:N` |
-| `read-screen` returns empty → give up | `cmux refresh-surfaces` first, retry |
-| `read-screen --lines 10` during poll | use `--lines 60+`, otherwise you miss the spinner |
-| Launching with `--dangerously-skip-permissions` | plain `claude` (ask before enabling skip) |
+| Trusting stored `workspace:N`/`surface:N` after closes | refs renumber — re-resolve via `tree`, or hold UUIDs (`--id-format both`) |
+| `--surface surface:N` alone at another workspace | both flags: `--workspace workspace:N --surface surface:M` |
+| `"vertical"` read as vim-style left/right | cmux vertical = stacked top/bottom; horizontal = side-by-side |
+| Parsing `new-workspace` output with `awk '{print $2}'` | deprecation notice can precede — `CMUX_QUIET=1` + `awk '/^OK/{print $2}'` |
+| 5+ panes crammed in one workspace | tab-stack the occasional shells, or spill to a `[2/2]` sibling workspace |
+| `send "line1\nline2\n"` for multi-line | send + `send-key return` per line |
+| `send-key q` to exit a pager | `send "q"` |
+| `read-screen --lines 10` in a poll loop | `refresh-surfaces` first, `--lines 60` |
+| TUI mis-rendered in a background workspace | PTY sizes settle on first render — select the workspace once |
+| Expecting the first `surfaces[]` entry to be the visible tab | the last listed ends up selected; order accordingly or `--focus true` |
 | `/exit` as the only cleanup | `/exit` → `sleep 2` → `close-workspace` |
-| Unnamed workspace | always `--name "🤖 <role>"` so the sidebar is legible |
-| Leaving subagents alive after collect | teardown every time — they burn tokens |
-| Spawning 10 parallel subagents "just in case" | cap at 4 unless the user explicitly authorizes more |
+| Unnamed workspaces | always `--name "🤖 <role>"` — sidebar legibility is the point |
 
-## Environment variables
+## Environment
 
 | Var | Meaning |
 |---|---|
-| `CMUX_SOCKET_PATH` | Path to cmux socket. If set, you're running inside cmux. |
-| `CMUX_WORKSPACE_ID` | UUID of your current workspace |
-| `CMUX_SURFACE_ID` | UUID of your current surface |
-
-If `CMUX_SOCKET_PATH` is unset, cmux isn't running — fall back to the built-in Agent tool and tell the user.
+| `CMUX_SOCKET_PATH` | Set ⇒ you're inside cmux. Unset ⇒ fall back to Bash/Agent tool and say so. |
+| `CMUX_WORKSPACE_ID` / `CMUX_SURFACE_ID` / `CMUX_TAB_ID` | Your own UUIDs — the defaults commands act on when flags are omitted. |
