@@ -1,0 +1,48 @@
+#!/bin/sh
+# claudex — the Claude Code harness driving GPT-5.6 Sol through the local
+# CLIProxyAPI on :8317.
+#
+# Script form (rather than only a zsh alias) so non-interactive callers can use
+# it too: skills, `cmux send`, background Bash tasks, and anything else that
+# runs without sourcing ~/.config/zsh/local.zsh.
+#
+# Defaults are set before "$@" so any flag you pass wins over them:
+#   claudex                        -> interactive session, sol @ xhigh
+#   claudex --effort high -p "..." -> headless, effort overridden to high
+#   claudex --model gpt-5.6-luna   -> different model, same proxy
+
+set -eu
+
+KEY_FILE="${CLIPROXY_KEY_FILE:-$HOME/.config/cliproxyapi/key}"
+BASE_URL="${CLIPROXY_BASE_URL:-http://127.0.0.1:8317}"
+
+if [ ! -r "$KEY_FILE" ]; then
+  echo "claudex: proxy key not readable at $KEY_FILE" >&2
+  exit 1
+fi
+
+# Fail loudly here rather than letting Claude Code report an opaque auth error.
+if ! curl -fsS --max-time 3 -o /dev/null \
+     -H "Authorization: Bearer $(cat "$KEY_FILE")" "$BASE_URL/v1/models"; then
+  echo "claudex: CLIProxyAPI not answering at $BASE_URL" >&2
+  echo "         try: brew services restart cliproxyapi" >&2
+  exit 1
+fi
+
+export ANTHROPIC_BASE_URL="$BASE_URL"
+export ANTHROPIC_AUTH_TOKEN="$(cat "$KEY_FILE")"
+
+# Claude Code's background haiku calls would otherwise ask the proxy for a
+# claude-* model it holds no credential for.
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.4-mini
+
+# Sol's real window per the proxy's embedded catalog; without this Claude Code
+# does not recognize the model name and assumes 200k, compacting early.
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=372000
+
+export CLAUDE_CODE_SUBAGENT_MODEL=gpt-5.6-sol
+export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1
+export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3
+export ENABLE_TOOL_SEARCH=false
+
+exec claude --model gpt-5.6-sol --effort xhigh "$@"
