@@ -7,14 +7,20 @@
 # runs without sourcing ~/.config/zsh/local.zsh.
 #
 # Defaults are set before "$@" so any flag you pass wins over them:
-#   claudex                       -> interactive session, sol @ high
+#   claudex                       -> interactive session, sol-fast @ high
 #   claudex --effort xhigh -p ... -> headless, effort overridden to xhigh
-#   claudex --model gpt-5.6-luna  -> different model, same proxy
+#   claudex --model gpt-5.6-sol   -> plain lane, the proxy's default tier
 
 set -eu
 
 KEY_FILE="${CLIPROXY_KEY_FILE:-$HOME/.config/cliproxyapi/key}"
 BASE_URL="${CLIPROXY_BASE_URL:-http://127.0.0.1:8317}"
+
+# Not an upstream model name. gpt-5.6-sol-fast is an alias defined in the
+# proxy's own config that maps to gpt-5.6-sol with service_tier: priority —
+# the tier the Codex CLI reports when you run /fast. That config is
+# machine-local and untracked, so a fresh machine will not have the alias.
+MODEL=gpt-5.6-sol-fast
 
 if [ ! -r "$KEY_FILE" ]; then
   echo "claudex: proxy key not readable at $KEY_FILE" >&2
@@ -22,11 +28,30 @@ if [ ! -r "$KEY_FILE" ]; then
 fi
 
 # Fail loudly here rather than letting Claude Code report an opaque auth error.
-if ! curl -fsS --max-time 3 -o /dev/null \
-     -H "Authorization: Bearer $(cat "$KEY_FILE")" "$BASE_URL/v1/models"; then
+if ! MODELS=$(curl -fsS --max-time 3 \
+     -H "Authorization: Bearer $(cat "$KEY_FILE")" "$BASE_URL/v1/models"); then
   echo "claudex: CLIProxyAPI not answering at $BASE_URL" >&2
   echo "         try: brew services restart cliproxyapi" >&2
   exit 1
+fi
+
+# Same reasoning for the model: a name the proxy does not serve fails deep
+# inside Claude Code as an opaque unrecognized-model error. Skipped when the
+# caller pins its own --model, which is then the caller's problem to get right.
+pinned=
+for arg in "$@"; do
+  case $arg in --model | --model=*) pinned=1 ;; esac
+done
+if [ -z "$pinned" ]; then
+  case $MODELS in
+    *"\"$MODEL\""*) ;;
+    *)
+      echo "claudex: $BASE_URL does not serve $MODEL" >&2
+      echo "         add its oauth-model-alias + payload service_tier override" >&2
+      echo "         to the proxy config, or run: claudex --model gpt-5.6-sol" >&2
+      exit 1
+      ;;
+  esac
 fi
 
 export ANTHROPIC_BASE_URL="$BASE_URL"
@@ -40,9 +65,11 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.4-mini
 # does not recognize the model name and assumes 200k, compacting early.
 export CLAUDE_CODE_MAX_CONTEXT_TOKENS=372000
 
+# Left on the plain lane deliberately: subagents fan out, so the priority
+# premium would multiply across them for work the main loop already paid for.
 export CLAUDE_CODE_SUBAGENT_MODEL=gpt-5.6-sol
 export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1
 export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3
 export ENABLE_TOOL_SEARCH=false
 
-exec claude --model gpt-5.6-sol --effort high "$@"
+exec claude --model "$MODEL" --effort high "$@"
