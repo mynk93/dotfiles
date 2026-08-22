@@ -7,9 +7,9 @@
 # runs without sourcing ~/.config/zsh/local.zsh.
 #
 # Defaults are set before "$@" so any flag you pass wins over them:
-#   claudex                        -> interactive session, sol @ xhigh
-#   claudex --effort high -p "..." -> headless, effort overridden to high
-#   claudex --model gpt-5.6-luna   -> different model, same proxy
+#   claudex                       -> interactive session, sol @ high
+#   claudex --effort xhigh -p ... -> headless, effort overridden to xhigh
+#   claudex --model gpt-5.6-luna  -> different model, same proxy
 
 set -eu
 
@@ -45,4 +45,4 @@ export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1
 export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3
 export ENABLE_TOOL_SEARCH=false
 
-exec claude --model gpt-5.6-sol --effort xhigh "$@"
+exec claude --model gpt-5.6-sol --effort high "$@"
