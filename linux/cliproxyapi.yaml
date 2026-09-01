@@ -14,8 +14,37 @@ port: 8317
 #   cli-proxy-api -config ~/.config/cliproxyapi/config.yaml -codex-device-login
 auth-dir: "~/.cli-proxy-api"
 
-# The bearer token claudex sends. Mirrored to ~/.config/cliproxyapi/key.
+# The bearer token claudex sends. Mirrored to ~/.config/cliproxyapi/key; the
+# two must match or every request 401s.
 api-keys:
   - "__API_KEY__"
 
+request-retry: 3
 debug: false
+
+# ── gpt-5.6-sol-fast ───────────────────────────────────────
+# NOT a built-in catalog entry, and device login does not create it — it is
+# pure config, so this block is mandatory or claudex refuses to start (its
+# preflight greps /v1/models for the name and exits with an actionable
+# message rather than letting Claude Code die on an unrecognized model).
+#
+# fork: true publishes the alias as an ADDITIONAL model, so the plain
+# gpt-5.6-sol lane keeps its default tier and only the -fast lane pays the
+# priority premium.
+oauth-model-alias:
+  codex:
+    - name: "gpt-5.6-sol"
+      alias: "gpt-5.6-sol-fast"
+      fork: true
+
+# "priority" is the only latency tier this build accepts — the enum is
+# auto / flex / priority. service_tier: "fast" is rejected upstream with
+# 400 {"detail":"Unsupported service_tier: fast"}. Codex CLI's /fast
+# reporting "Service tier set to priority" is the confirming hint.
+payload:
+  override:
+    - models:
+        - name: "gpt-5.6-sol-fast"
+          protocol: "codex"
+      params:
+        service_tier: "priority"
