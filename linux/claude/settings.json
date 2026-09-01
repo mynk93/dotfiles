@@ -1,0 +1,20 @@
+{
+  "model": "claude-fable-5[1m]",
+  "effortLevel": "xhigh",
+  "permissions": {
+    "deny": ["Skill(proPlugins:pro-pr-description)"],
+    "defaultMode": "auto"
+  },
+  "autoMemoryEnabled": false,
+  "skipWorkflowUsageWarning": true,
+  "skipAutoPermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "worktree": { "baseRef": "fresh" },
+  "tui": "fullscreen",
+  "theme": "dark",
+  "preferredNotifChannel": "terminal_bell",
+  "switchModelsOnFlag": false,
+  "remoteControlAtStartup": true,
+  "crossSessionInbound": "accept",
+  "autoContinueAtUsageLimit": false
+}
