@@ -130,6 +130,18 @@ fi
 # Not in version control. Work tokens, machine-specific paths, etc.
 [[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"
 
+# ── CLIProxyAPI (claudex) ──────────────────────────────────
+# claudex drives GPT-5.6 Sol through a local proxy on :8317. Keep it under
+# tmux for the same reason rc is: no systemd on these boxes, and a
+# foreground process dies with the ssh session. Starts only once the
+# binary exists, so a box that skipped --claudex is unaffected.
+if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 \
+   && [[ -x "$HOME/.local/bin/cli-proxy-api" && -f "$HOME/.config/cliproxyapi/config.yaml" ]]; then
+    tmux has-session -t proxy 2>/dev/null || \
+        tmux new-session -d -s proxy \
+            "exec $HOME/.local/bin/cli-proxy-api -config $HOME/.config/cliproxyapi/config.yaml"
+fi
+
 # ── Claude Remote Control ──────────────────────────────────
 # Keep a detached tmux-hosted rc daemon alive so it survives ssh
 # disconnects and comes back after a pod restart. Idempotent: the

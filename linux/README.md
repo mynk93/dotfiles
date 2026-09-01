@@ -26,7 +26,8 @@ exec bash -l
 ```
 
 `--rc-prefix` names the box in claude.ai/code session lists. `--git-name`
-and `--git-email` set the git identity. Flags `--skip-tools`,
+and `--git-email` set the git identity. `--claudex` additionally installs
+CLIProxyAPI and the claudex harness (see below). Flags `--skip-tools`,
 `--skip-claude`, `--skip-configs`, `--skip-shell` narrow what runs; all
 steps are idempotent, so re-running is the upgrade path.
 
@@ -43,6 +44,33 @@ steps are idempotent, so re-running is the upgrade path.
 | `~/.gitconfig` | `linux/gitconfig` | no `[user]` block, see below |
 | `~/.config/git/local` | generated | git identity, never committed |
 | `~/.config/{bat,btop,glow,git,lazygit}/` | `home/dot_config/` | identical on both platforms |
+| `~/.local/bin/claudex` | `home/dot_local/bin/` | `--claudex` only |
+| `~/.config/cliproxyapi/` | `linux/cliproxyapi.yaml` | `--claudex` only, key generated locally |
+
+### claudex on a remote box
+
+`--claudex` installs CLIProxyAPI alongside the harness so the box serves its
+own proxy on `127.0.0.1:8317`. The alternative — reverse-tunnelling the
+Mac's proxy — was rejected because it only works while the Mac is awake,
+which defeats the point of driving the box from a phone.
+
+No credential is committed and none is copied off the Mac. The proxy config
+is a template with an `__API_KEY__` placeholder; bootstrap generates a key
+on the box, writes it to `~/.config/cliproxyapi/{key,config.yaml}` at mode
+600, and never overwrites an existing pair — so re-running cannot invalidate
+a proxy you have already logged in to. Upstream auth is a one-time device
+code flow that needs no browser on the box:
+
+```sh
+~/.local/bin/cli-proxy-api -config ~/.config/cliproxyapi/config.yaml \
+    -codex-device-login
+```
+
+The proxy then runs under a `proxy` tmux session, started by the same
+interactive-shell hook that keeps Remote Control alive.
+
+Note that `codex-review` still will not run here: it orchestrates reviewer
+sessions in cmux panes, and cmux is macOS-native.
 
 ### Why the git identity is split out
 
