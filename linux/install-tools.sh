@@ -39,6 +39,19 @@ TOOLS=(
     "walles/moor|moor-v.+-linux-amd64|moor"
 )
 
+# Opt-in only (--with-claudex): CLIProxyAPI is a daemon holding upstream
+# OAuth credentials, not a general-purpose CLI, so a plain run skips it.
+CLAUDEX_TOOLS=(
+    "router-for-me/CLIProxyAPI|CLIProxyAPI_.+_linux_amd64.tar.gz|cli-proxy-api"
+)
+
+if [[ "${1:-}" == "--with-claudex" ]]; then
+    TOOLS+=("${CLAUDEX_TOOLS[@]}")
+elif [[ -n "${1:-}" ]]; then
+    echo "install-tools: unknown flag ${1}" >&2
+    exit 1
+fi
+
 # Pick the one release asset whose filename matches, without needing jq —
 # jq is itself one of the things we may be installing.
 resolve_asset_url() {

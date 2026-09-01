@@ -23,6 +23,8 @@
 #   --skip-claude      don't touch ~/.claude
 #   --skip-configs     don't touch ~/.gitconfig or ~/.config/{bat,btop,glow,git,lazygit}
 #   --skip-shell       don't touch ~/.bashrc
+#   --claudex          also install CLIProxyAPI + the claudex harness (opt-in;
+#                      needs a one-time device-code login, see the notes it prints)
 
 set -euo pipefail
 
@@ -37,6 +39,7 @@ DO_TOOLS=1
 DO_CLAUDE=1
 DO_CONFIGS=1
 DO_SHELL=1
+DO_CLAUDEX=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -47,6 +50,7 @@ while [[ $# -gt 0 ]]; do
         --skip-claude)  DO_CLAUDE=0;  shift ;;
         --skip-configs) DO_CONFIGS=0; shift ;;
         --skip-shell)   DO_SHELL=0;   shift ;;
+        --claudex)      DO_CLAUDEX=1; shift ;;
         -h|--help)      sed -n '2,27p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "bootstrap: unknown flag $1" >&2; exit 1 ;;
     esac
@@ -55,7 +59,11 @@ done
 # ── 1. CLI binaries ────────────────────────────────────────
 if [[ "$DO_TOOLS" == 1 ]]; then
     echo "==> Installing CLI tools"
-    "$REPO/linux/install-tools.sh"
+    if [[ "$DO_CLAUDEX" == 1 ]]; then
+        "$REPO/linux/install-tools.sh" --with-claudex
+    else
+        "$REPO/linux/install-tools.sh"
+    fi
     echo
 fi
 
@@ -168,6 +176,49 @@ PY
             printf "export CLAUDE_RC_PREFIX='%s'\n" "$RC_PREFIX" >> ~/.config/bash/local.bash
         fi
         echo "    CLAUDE_RC_PREFIX=$RC_PREFIX written to ~/.config/bash/local.bash"
+    fi
+    echo
+fi
+
+# ── 5. claudex + CLIProxyAPI ───────────────────────────────
+# The proxy holds upstream OAuth credentials, so nothing here is committed:
+# the config comes from a template with a placeholder, and the API key is
+# generated on this box. An existing key/config is never overwritten —
+# re-running bootstrap must not invalidate a proxy you already logged in to.
+if [[ "$DO_CLAUDEX" == 1 ]]; then
+    echo "==> Installing claudex + CLIProxyAPI"
+    install -m 755 "$REPO/home/dot_local/bin/executable_claudex" ~/.local/bin/claudex
+    echo "    ~/.local/bin/claudex installed"
+
+    mkdir -p ~/.config/cliproxyapi && chmod 700 ~/.config/cliproxyapi
+    if [[ -f ~/.config/cliproxyapi/key ]]; then
+        echo "    reusing existing proxy key"
+        api_key="$(cat ~/.config/cliproxyapi/key)"
+    else
+        api_key="sk-cliproxy-$(head -c 20 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+        printf '%s' "$api_key" > ~/.config/cliproxyapi/key
+        chmod 600 ~/.config/cliproxyapi/key
+        echo "    generated a proxy key -> ~/.config/cliproxyapi/key (mode 600)"
+    fi
+
+    if [[ -f ~/.config/cliproxyapi/config.yaml ]]; then
+        echo "    keeping existing config.yaml"
+    else
+        sed "s|__API_KEY__|$api_key|" "$REPO/linux/cliproxyapi.yaml" \
+            > ~/.config/cliproxyapi/config.yaml
+        chmod 600 ~/.config/cliproxyapi/config.yaml
+        echo "    config.yaml written (loopback only, management API disabled)"
+    fi
+
+    if [[ -d ~/.cli-proxy-api ]] && compgen -G ~/.cli-proxy-api/'codex-*.json' >/dev/null; then
+        echo "    upstream Codex credential already present"
+    else
+        echo
+        echo "    ONE-TIME LOGIN REQUIRED — no upstream credential yet. Run:"
+        echo "      ~/.local/bin/cli-proxy-api -config ~/.config/cliproxyapi/config.yaml \\"
+        echo "        -codex-device-login"
+        echo "    It prints a code to enter in a browser on any device; no browser"
+        echo "    is needed on this box. Then open a new shell to start the proxy."
     fi
     echo
 fi

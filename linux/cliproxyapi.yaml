@@ -1,0 +1,21 @@
+# CLIProxyAPI config for a Linux dev box. bootstrap.sh copies this to
+# ~/.config/cliproxyapi/config.yaml and replaces __API_KEY__ with a key it
+# generates on the box, so no secret is ever committed here.
+#
+# Differences from the macOS Homebrew config: remote-management is omitted
+# entirely (no management key to leak, and /v0/management 404s), and the
+# listener stays on loopback — the proxy is reachable only from inside this
+# box, so claudex's default BASE_URL of http://127.0.0.1:8317 is unchanged.
+
+host: "127.0.0.1"
+port: 8317
+
+# Upstream OAuth credentials land here via:
+#   cli-proxy-api -config ~/.config/cliproxyapi/config.yaml -codex-device-login
+auth-dir: "~/.cli-proxy-api"
+
+# The bearer token claudex sends. Mirrored to ~/.config/cliproxyapi/key.
+api-keys:
+  - "__API_KEY__"
+
+debug: false
