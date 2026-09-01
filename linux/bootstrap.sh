@@ -183,8 +183,9 @@ fi
 # ── 5. claudex + CLIProxyAPI ───────────────────────────────
 # The proxy holds upstream OAuth credentials, so nothing here is committed:
 # the config comes from a template with a placeholder, and the API key is
-# generated on this box. An existing key/config is never overwritten —
-# re-running bootstrap must not invalidate a proxy you already logged in to.
+# generated on this box. The key is never regenerated once it exists, so a
+# re-run cannot invalidate a proxy you already logged in to; the config
+# itself is rewritten every run so template changes actually land.
 if [[ "$DO_CLAUDEX" == 1 ]]; then
     echo "==> Installing claudex + CLIProxyAPI"
     install -m 755 "$REPO/home/dot_local/bin/executable_claudex" ~/.local/bin/claudex
@@ -201,14 +202,13 @@ if [[ "$DO_CLAUDEX" == 1 ]]; then
         echo "    generated a proxy key -> ~/.config/cliproxyapi/key (mode 600)"
     fi
 
-    if [[ -f ~/.config/cliproxyapi/config.yaml ]]; then
-        echo "    keeping existing config.yaml"
-    else
-        sed "s|__API_KEY__|$api_key|" "$REPO/linux/cliproxyapi.yaml" \
-            > ~/.config/cliproxyapi/config.yaml
-        chmod 600 ~/.config/cliproxyapi/config.yaml
-        echo "    config.yaml written (loopback only, management API disabled)"
-    fi
+    # Always regenerate from the template so alias/tier changes propagate;
+    # the key is substituted back in, so an existing device login survives.
+    # Hand edits to config.yaml do not — put them in the template instead.
+    sed "s|__API_KEY__|$api_key|" "$REPO/linux/cliproxyapi.yaml" \
+        > ~/.config/cliproxyapi/config.yaml
+    chmod 600 ~/.config/cliproxyapi/config.yaml
+    echo "    config.yaml regenerated (loopback only, management API disabled)"
 
     if [[ -d ~/.cli-proxy-api ]] && compgen -G ~/.cli-proxy-api/'codex-*.json' >/dev/null; then
         echo "    upstream Codex credential already present"
