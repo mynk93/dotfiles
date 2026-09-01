@@ -1,0 +1,56 @@
+# CLIProxyAPI config for a Linux dev box. bootstrap.sh copies this to
+# ~/.config/cliproxyapi/config.yaml and replaces __API_KEY__ with a key it
+# generates on the box, so no secret is ever committed here.
+#
+# Differences from the macOS Homebrew config: remote-management is omitted
+# entirely (no management key to leak, and /v0/management 404s), and the
+# listener stays on loopback — the proxy is reachable only from inside this
+# box, so claudex's default BASE_URL of http://127.0.0.1:8317 is unchanged.
+
+host: "127.0.0.1"
+port: 8317
+
+# Upstream OAuth credentials land here via:
+#   cli-proxy-api -config ~/.config/cliproxyapi/config.yaml -codex-device-login
+auth-dir: "~/.cli-proxy-api"
+
+# The bearer token claudex sends. Mirrored to ~/.config/cliproxyapi/key; the
+# two must match or every request 401s.
+api-keys:
+  - "__API_KEY__"
+
+request-retry: 3
+debug: false
+
+# ── gpt-5.6-sol-fast (optional opt-in lane) ────────────────
+# OPTIONAL. claudex defaults to plain gpt-5.6-sol, so nothing here depends
+# on this block — delete it and the box still works. It exists only so
+# `claudex --model gpt-5.6-sol-fast` is available when a session warrants
+# the priority tier, matching the Mac, where the same block is kept live
+# as an opt-in lane.
+#
+# Cost warning: priority burns plan quota materially faster, which is why
+# it is no longer the default. If this box shares a Codex account with
+# another machine, a request on this lane spends the shared quota.
+#
+# It is not a built-in catalog entry and device login does not create it —
+# the name only appears in /v1/models because of this config. fork: true
+# publishes it as an ADDITIONAL model so the plain gpt-5.6-sol lane keeps
+# its default tier.
+oauth-model-alias:
+  codex:
+    - name: "gpt-5.6-sol"
+      alias: "gpt-5.6-sol-fast"
+      fork: true
+
+# "priority" is the only latency tier this build accepts — the enum is
+# auto / flex / priority. service_tier: "fast" is rejected upstream with
+# 400 {"detail":"Unsupported service_tier: fast"}. Codex CLI's /fast
+# reporting "Service tier set to priority" is the confirming hint.
+payload:
+  override:
+    - models:
+        - name: "gpt-5.6-sol-fast"
+          protocol: "codex"
+      params:
+        service_tier: "priority"
