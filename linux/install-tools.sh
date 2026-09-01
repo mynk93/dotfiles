@@ -34,6 +34,9 @@ TOOLS=(
     "dandavison/delta|delta-.+-x86_64-unknown-linux-gnu.tar.gz|delta"
     "charmbracelet/glow|glow_.+_Linux_x86_64.tar.gz|glow"
     "jqlang/jq|jq-linux-amd64|jq"
+    "cli/cli|gh_.+_linux_amd64.tar.gz|gh"
+    "jesseduffield/lazygit|lazygit_.+_linux_x86_64.tar.gz|lazygit"
+    "walles/moor|moor-v.+-linux-amd64|moor"
 )
 
 # Pick the one release asset whose filename matches, without needing jq —

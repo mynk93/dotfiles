@@ -25,20 +25,37 @@ git clone https://github.com/mynk93/dotfiles.git ~/.dotfiles
 exec bash -l
 ```
 
-`--rc-prefix` names the box in claude.ai/code session lists. Flags
-`--skip-tools`, `--skip-claude`, `--skip-shell` narrow what runs; all
+`--rc-prefix` names the box in claude.ai/code session lists. `--git-name`
+and `--git-email` set the git identity. Flags `--skip-tools`,
+`--skip-claude`, `--skip-configs`, `--skip-shell` narrow what runs; all
 steps are idempotent, so re-running is the upgrade path.
 
 ## What it installs
 
 | Path | From | Notes |
 |---|---|---|
-| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq |
+| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor |
 | `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
 | `~/.vimrc` | `home/dot_vimrc` | verbatim |
 | `~/.config/bash/bashrc.linux` | `linux/bashrc.linux` | sourced from `~/.bashrc` |
 | `~/.config/bash/local.bash` | generated | per-machine, never committed |
+| `~/.gitconfig` | `linux/gitconfig` | no `[user]` block, see below |
+| `~/.config/git/local` | generated | git identity, never committed |
+| `~/.config/{bat,btop,glow,git,lazygit}/` | `home/dot_config/` | identical on both platforms |
+
+### Why the git identity is split out
+
+This repo is public, so `linux/gitconfig` carries the aliases, delta wiring,
+and diff settings but no `[user]` block. `bootstrap.sh --git-name/--git-email`
+writes the identity to `~/.config/git/local`, which `[include]` pulls in and
+git never sees as committed. Same split `.ssh/config` uses with
+`config.local`; a missing include is not an error.
+
+The macOS `dot_gitconfig.tmpl` also differs in two places: `core.editor` is
+`vim` rather than `zed --wait` (no GUI on a remote box, and vim already
+blocks), and commit/tag signing is dropped because these boxes carry no GPG
+key.
 
 ### Why settings.json is forked
 
@@ -62,10 +79,6 @@ completion, the `mynk.zsh` prompt, the `add-zsh-hook` project-local
 prefix history search on Up/Down, case-insensitive completion — which are
 close but not the same thing.
 
-Dropped for missing dependencies: `prdiff` (needs `gh` plus `hunk`, and
-`hunk` comes from npm rather than the Brewfile), the `y` yazi wrapper,
-`lzh` / `lzd` / `dbx`.
-
-`delta` is installed but not wired — that lives in `~/.gitconfig`, which
-this script does not manage because the chezmoi source is a template
-needing name/email/GPG prompts.
+Dropped for missing dependencies: `prdiff` (`gh` is installed now, but it
+also needs `hunk`, which comes from npm rather than the Brewfile), the `y`
+yazi wrapper, `lzd` / `dbx`.

@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
-# linux/bootstrap.sh — provision a Linux box with the shell + Claude config.
+# linux/bootstrap.sh — provision a Linux box with the shell, git, and Claude config.
 #
 # chezmoi is deliberately not used here. Its source root (home/) and its
 # run_once scripts are macOS-shaped — they install Homebrew and run
 # `defaults write` — so applying them on Linux is wrong. This script copies
 # the handful of cross-platform files directly and translates the chezmoi
-# name prefixes (dot_ -> ., executable_ -> +x) itself.
+# name prefixes (dot_ -> ., executable_ -> +x, private_ -> 700) itself.
 #
 # Everything lands under $HOME, which on a k8s dev pod is usually the only
 # persistent, writable path. No root required.
 #
 # Usage:
 #   git clone https://github.com/mynk93/dotfiles.git ~/.dotfiles
-#   ~/.dotfiles/linux/bootstrap.sh --rc-prefix linux
+#   ~/.dotfiles/linux/bootstrap.sh --rc-prefix linux \
+#       --git-name "Your Name" --git-email you@example.com
 #
 # Flags:
 #   --rc-prefix NAME   name this box in claude.ai/code session lists
+#   --git-name NAME    git author name  -> ~/.config/git/local (never committed)
+#   --git-email EMAIL  git author email -> ~/.config/git/local (never committed)
 #   --skip-tools       don't download CLI binaries
 #   --skip-claude      don't touch ~/.claude
+#   --skip-configs     don't touch ~/.gitconfig or ~/.config/{bat,btop,glow,git,lazygit}
 #   --skip-shell       don't touch ~/.bashrc
 
 set -euo pipefail
@@ -27,17 +31,23 @@ BEGIN_MARK='# >>> dotfiles linux >>>'
 END_MARK='# <<< dotfiles linux <<<'
 
 RC_PREFIX=""
+GIT_NAME=""
+GIT_EMAIL=""
 DO_TOOLS=1
 DO_CLAUDE=1
+DO_CONFIGS=1
 DO_SHELL=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --rc-prefix)   RC_PREFIX="${2:?--rc-prefix needs a value}"; shift 2 ;;
-        --skip-tools)  DO_TOOLS=0;  shift ;;
-        --skip-claude) DO_CLAUDE=0; shift ;;
-        --skip-shell)  DO_SHELL=0;  shift ;;
-        -h|--help)     sed -n '2,25p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        --rc-prefix)    RC_PREFIX="${2:?--rc-prefix needs a value}"; shift 2 ;;
+        --git-name)     GIT_NAME="${2:?--git-name needs a value}";   shift 2 ;;
+        --git-email)    GIT_EMAIL="${2:?--git-email needs a value}"; shift 2 ;;
+        --skip-tools)   DO_TOOLS=0;   shift ;;
+        --skip-claude)  DO_CLAUDE=0;  shift ;;
+        --skip-configs) DO_CONFIGS=0; shift ;;
+        --skip-shell)   DO_SHELL=0;   shift ;;
+        -h|--help)      sed -n '2,27p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "bootstrap: unknown flag $1" >&2; exit 1 ;;
     esac
 done
@@ -79,7 +89,44 @@ if [[ "$DO_CLAUDE" == 1 ]]; then
     echo
 fi
 
-# ── 3. Shell ───────────────────────────────────────────────
+# ── 3. Tool configs + git ──────────────────────────────────
+# These tools are configured identically on both platforms, so the configs
+# come straight from home/dot_config with no Linux variant.
+if [[ "$DO_CONFIGS" == 1 ]]; then
+    echo "==> Installing tool configs"
+    cfg="$REPO/home/dot_config"
+    mkdir -p ~/.config/bat ~/.config/btop ~/.config/git ~/.config/lazygit
+    cp "$cfg/bat/config"          ~/.config/bat/config
+    cp "$cfg/btop/btop.conf"      ~/.config/btop/btop.conf
+    cp "$cfg/git/ignore"          ~/.config/git/ignore
+    cp "$cfg/lazygit/config.yml"  ~/.config/lazygit/config.yml
+    # chezmoi's private_ prefix means 700 on the deployed directory.
+    mkdir -p ~/.config/glow && chmod 700 ~/.config/glow
+    cp "$cfg/private_glow/glow.yml" ~/.config/glow/glow.yml
+    echo "    bat, btop, glow, git ignore, lazygit"
+
+    cp "$REPO/linux/gitconfig" ~/.gitconfig
+    chmod 644 ~/.gitconfig
+    echo "    ~/.gitconfig installed (identity kept out of it — see below)"
+
+    # Identity lives outside version control: this repo is public.
+    if [[ -n "$GIT_NAME" || -n "$GIT_EMAIL" ]]; then
+        {
+            echo "# Written by linux/bootstrap.sh. Never commit this file."
+            echo "[user]"
+            [[ -n "$GIT_NAME"  ]] && printf '\tname = %s\n'  "$GIT_NAME"
+            [[ -n "$GIT_EMAIL" ]] && printf '\temail = %s\n' "$GIT_EMAIL"
+        } > ~/.config/git/local
+        chmod 600 ~/.config/git/local
+        echo "    identity written to ~/.config/git/local"
+    elif [[ ! -f ~/.config/git/local ]]; then
+        echo "    WARNING: no git identity set. Commits will fail until you run:"
+        echo "             $0 --git-name 'Your Name' --git-email you@example.com"
+    fi
+    echo
+fi
+
+# ── 4. Shell ───────────────────────────────────────────────
 if [[ "$DO_SHELL" == 1 ]]; then
     echo "==> Installing shell config"
     mkdir -p ~/.config/bash

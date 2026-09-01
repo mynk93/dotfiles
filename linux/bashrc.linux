@@ -16,7 +16,11 @@ export EDITOR='vim'
 export VISUAL="$EDITOR"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-# moor isn't packaged for these boxes, so less stays the pager.
+# moor is the pager when install-tools.sh has fetched it, matching .zshenv;
+# less stays the fallback for a box where it hasn't run yet.
+command -v moor >/dev/null 2>&1 && export PAGER='moor'
+
+# less defaults for tools that bypass $PAGER and call less directly:
 #   -F quit if content fits on one screen
 #   -R render raw ANSI colour escapes
 #   -X don't clear screen on exit (preserve scrollback)
@@ -87,6 +91,7 @@ alias bashsource='source ~/.bashrc'
 
 # ── Tooling shortcuts ──────────────────────────────────────
 alias cc='claude'
+command -v lazygit >/dev/null 2>&1 && alias lzh='lazygit'
 # Linux analogue of the macOS `ipconfig getifaddr en0`.
 alias ip='hostname -I | cut -d" " -f1'
 
