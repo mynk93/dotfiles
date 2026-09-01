@@ -22,15 +22,21 @@ api-keys:
 request-retry: 3
 debug: false
 
-# ── gpt-5.6-sol-fast ───────────────────────────────────────
-# NOT a built-in catalog entry, and device login does not create it — it is
-# pure config, so this block is mandatory or claudex refuses to start (its
-# preflight greps /v1/models for the name and exits with an actionable
-# message rather than letting Claude Code die on an unrecognized model).
+# ── gpt-5.6-sol-fast (optional opt-in lane) ────────────────
+# OPTIONAL. claudex defaults to plain gpt-5.6-sol, so nothing here depends
+# on this block — delete it and the box still works. It exists only so
+# `claudex --model gpt-5.6-sol-fast` is available when a session warrants
+# the priority tier, matching the Mac, where the same block is kept live
+# as an opt-in lane.
 #
-# fork: true publishes the alias as an ADDITIONAL model, so the plain
-# gpt-5.6-sol lane keeps its default tier and only the -fast lane pays the
-# priority premium.
+# Cost warning: priority burns plan quota materially faster, which is why
+# it is no longer the default. If this box shares a Codex account with
+# another machine, a request on this lane spends the shared quota.
+#
+# It is not a built-in catalog entry and device login does not create it —
+# the name only appears in /v1/models because of this config. fork: true
+# publishes it as an ADDITIONAL model so the plain gpt-5.6-sol lane keeps
+# its default tier.
 oauth-model-alias:
   codex:
     - name: "gpt-5.6-sol"
