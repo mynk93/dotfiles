@@ -1,0 +1,143 @@
+# ~/.config/bash/bashrc.linux — Linux dev-box shell config.
+#
+# Sourced from ~/.bashrc by linux/bootstrap.sh. This is the bash
+# counterpart to ~/.config/zsh on macOS: it mirrors the parts that carry
+# over and drops the parts that don't (antidote plugins, zstyle menu
+# completion, the mynk.zsh prompt, the add-zsh-hook project loader).
+#
+# Every tool-dependent alias is guarded on the tool being present, so this
+# file is safe to source on a box where install-tools.sh hasn't run.
+
+# ── Environment ────────────────────────────────────────────
+# Mirrors ~/.zshenv. EDITOR is vim rather than `zed --wait` — there is no
+# GUI editor on a remote box, and vim needs no --wait since it blocks.
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export EDITOR='vim'
+export VISUAL="$EDITOR"
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
+# moor isn't packaged for these boxes, so less stays the pager.
+#   -F quit if content fits on one screen
+#   -R render raw ANSI colour escapes
+#   -X don't clear screen on exit (preserve scrollback)
+export LESS='-FRX'
+
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+# ── History ────────────────────────────────────────────────
+# Closest bash equivalents to the setopt block in .zshrc.
+HISTSIZE=50000
+HISTFILESIZE=50000
+HISTCONTROL=ignoredups:ignorespace   # HIST_IGNORE_DUPS + HIST_IGNORE_SPACE
+HISTTIMEFORMAT='%F %T '              # EXTENDED_HISTORY
+shopt -s histappend                  # never clobber another shell's history
+shopt -s cmdhist                     # keep a multi-line command on one line
+
+# Flush each command immediately so parallel shells interleave rather than
+# overwrite. This is as close as bash gets to zsh's SHARE_HISTORY; it does
+# not re-read other shells' entries into the current session.
+case "${PROMPT_COMMAND:-}" in
+    *'history -a'*) ;;
+    '') PROMPT_COMMAND='history -a' ;;
+    *)  PROMPT_COMMAND="history -a; $PROMPT_COMMAND" ;;
+esac
+
+# ── Shell behaviour ────────────────────────────────────────
+shopt -s autocd cdspell dirspell checkwinsize globstar
+
+# ── Directory listing ──────────────────────────────────────
+# The shorthands chain through the `ls` alias exactly as they do in zsh —
+# bash re-expands the first word of an alias body, so `l` resolves to
+# `eza -lah` when eza is present and `ls --color=auto -lah` when it isn't.
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza'
+else
+    alias ls='ls --color=auto'
+fi
+alias l='ls -lah'
+alias la='ls -lAh'
+alias ll='ls -lh'
+alias lsa='ls -lah'
+
+# ── CLI replacements ───────────────────────────────────────
+command -v bat  >/dev/null 2>&1 && alias cat='bat'
+command -v fd   >/dev/null 2>&1 && alias find='fd'
+command -v glow >/dev/null 2>&1 && alias view='glow -p'
+command -v btop >/dev/null 2>&1 && alias top='btop' && alias htop='btop'
+
+# `grep` is deliberately NOT aliased to rg — the CLI gap (-E, -P,
+# --include, recursion semantics) creates more surprises than it solves.
+# Use rg directly. Keep the colour alias the base image ships with.
+alias grep='grep --color=auto'
+
+# ── Navigation ─────────────────────────────────────────────
+alias phome='cd ~/dev/work'
+alias sandbox='cd ~/sandbox'
+alias sshhome='cd ~/.ssh'
+alias cconfig='cd ~/.claude'
+
+# ── Edit common configs ────────────────────────────────────
+alias sshconfig='$EDITOR ~/.ssh/config'
+alias gitconfig='$EDITOR ~/.gitconfig'
+alias bashconfig='$EDITOR ~/.config/bash/bashrc.linux'
+alias bashsource='source ~/.bashrc'
+
+# ── Tooling shortcuts ──────────────────────────────────────
+alias cc='claude'
+# Linux analogue of the macOS `ipconfig getifaddr en0`.
+alias ip='hostname -I | cut -d" " -f1'
+
+# ── Tool integrations ──────────────────────────────────────
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash)"
+
+if command -v fzf >/dev/null 2>&1; then
+    eval "$(fzf --bash)"
+    if command -v fd >/dev/null 2>&1; then
+        export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+        export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+        export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+    fi
+fi
+
+# ── Interactive-only setup ─────────────────────────────────
+# readline `bind` errors out in a non-interactive shell, and bash sources
+# ~/.bashrc for non-interactive ssh commands, so this must stay guarded or
+# every `ssh box <cmd>` prints warnings and scp/rsync break.
+if [[ $- == *i* ]]; then
+    bind 'set completion-ignore-case on'
+    bind 'set show-all-if-ambiguous on'
+    bind 'set colored-stats on'
+
+    # Up/Down do prefix-aware history search, the closest bash gets to
+    # zsh-history-substring-search: type a prefix, then press Up.
+    bind '"\e[A": history-search-backward'
+    bind '"\e[B": history-search-forward'
+
+    # Alt-Left / Alt-Right jump per word.
+    bind '"\e[1;3D": backward-word'
+    bind '"\e[1;3C": forward-word'
+fi
+
+# ── Machine-specific overrides ─────────────────────────────
+# Not in version control. Work tokens, machine-specific paths, etc.
+[[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"
+
+# ── Claude Remote Control ──────────────────────────────────
+# Keep a detached tmux-hosted rc daemon alive so it survives ssh
+# disconnects and comes back after a pod restart. Idempotent: the
+# has-session check makes re-sourcing a no-op.
+#
+# CLAUDE_RC_PREFIX names this machine in claude.ai/code session lists;
+# CLAUDE_RC_DIR is the directory rc serves sessions from. Set both per box
+# in ~/.config/bash/local.bash (sourced just above), which bootstrap.sh
+# seeds from --rc-prefix. The prefix defaults to the short hostname.
+if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [[ -x "$HOME/.local/bin/claude" ]]; then
+    tmux has-session -t rc 2>/dev/null || \
+        tmux new-session -d -s rc \
+            "cd ${CLAUDE_RC_DIR:-$HOME/dev/work} && exec $HOME/.local/bin/claude remote-control \
+                --no-create-session-in-dir \
+                --remote-control-session-name-prefix ${CLAUDE_RC_PREFIX:-$(hostname -s)}"
+fi
