@@ -1,6 +1,6 @@
 ---
 name: fable-review
-description: "Use when the branch/PR should get an adversarial bug hunt from a fresh Fable 5.1 session — headless `claude` pinned to claude-fable-5-1 at xhigh effort, in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security. No design or style commentary. The main agent triages findings with session context, gates fixes on user approval, can question the same review session, and can have the reviewer re-verify applied fixes. Triggers on 'fable-review', 'fable review', 'have fable review this', 'fresh-eyes review', 'second opinion from fable', 'adversarial fable pass'. Complements pr-sanity (legibility), /code-review (same-session review), and codex-review (cross-model review)."
+description: "Use when the branch/PR should get an adversarial bug hunt from a fresh Fable 5.1 session — headless `claude` pinned to claude-fable-5-1 at high effort, in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security. No design or style commentary. The main agent triages findings with session context, gates fixes on user approval, can question the same review session, and can have the reviewer re-verify applied fixes. Triggers on 'fable-review', 'fable review', 'have fable review this', 'fresh-eyes review', 'second opinion from fable', 'adversarial fable pass'. Complements pr-sanity (legibility), /code-review (same-session review), and codex-review (cross-model review)."
 ---
 
 # fable-review
@@ -38,8 +38,8 @@ model pinned to `claude-fable-5-1`. No wrapper or proxy is involved.
 4. **One session, fixed cost.** Exactly one review session per run. Follow-up
    questions resume it by its pinned session id, with a soft cap of about 3
    rounds. No second reviewer, no Workflow tool, no dynamic agent spawning.
-   Fable 5.1 at xhigh effort on a real diff is the dominant cost of the run, which
-   is the reason for the cap. The cap bounds orchestrator rounds; the reviewer
+   Fable 5.1 on a real diff is the dominant cost of the run, which is the
+   reason for the cap. The cap bounds orchestrator rounds; the reviewer
    itself can still fan out through the Agent tool. Add `--disallowedTools
    Agent` to the launch when a run needs a hard ceiling rather than a
    convention.
@@ -133,10 +133,10 @@ WT=<absolute path to .worktrees/fable-review>
 SID=$(uuidgen | tr 'A-Z' 'a-z')   # pin it now; follow-ups resume this exact id
 echo "$SID" > "$WT/.review/out/sid"
 
-# UUID handle: xhigh runs are long and surface:N refs renumber if workspaces close
+# UUID handle: review runs are long and surface:N refs renumber if workspaces close
 REV=$(CMUX_QUIET=1 cmux --id-format uuids new-split right | awk '/^OK/{print $2}')
 cmux rename-tab --surface "$REV" "fable-review"
-cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; claude --model claude-fable-5-1 --effort xhigh --session-id $SID --permission-mode bypassPermissions --output-format stream-json --verbose -p < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | select(.type==\"assistant\") | .message.content[]? | if .type==\"text\" then .text elif .type==\"tool_use\" then \"→ \\(.name)\" else empty end'; echo \$? > .review/out/rc\n"
+cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; claude --model claude-fable-5-1 --effort high --session-id $SID --permission-mode bypassPermissions --output-format stream-json --verbose -p < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | select(.type==\"assistant\") | .message.content[]? | if .type==\"text\" then .text elif .type==\"tool_use\" then \"→ \\(.name)\" else empty end'; echo \$? > .review/out/rc\n"
 
 echo "WT=$WT SID=$SID REV=$REV"   # carry these forward — see below
 ```
@@ -207,7 +207,7 @@ with the Write tool, then resume by pinned id:
 
 ```bash
 # Write tool → $WT/.review/followup-<n>.txt
-cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort xhigh --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/followup-<n>.txt > .review/out/followup-<n>.json 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
+cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/followup-<n>.txt > .review/out/followup-<n>.json 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
 ```
 
 `--resume $SID` targets this exact session — no cwd filtering, no
@@ -254,7 +254,7 @@ GIT_INDEX_FILE="$TMP_INDEX" git diff --cached HEAD > "$WT/.review/fixes.patch"
 # Write tool → $WT/.review/verdict-prompt.txt
 #   "Fixes were applied for your accepted findings — see .review/fixes.patch.
 #    For each finding F<n>: addressed / not addressed / new concern, one line each."
-cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort xhigh --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/verdict-prompt.txt > .review/out/verdict.json 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict\n"
+cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/verdict-prompt.txt > .review/out/verdict.json 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict\n"
 ```
 
 Wait on `rc-verdict` with the step-5 waiter before reading
