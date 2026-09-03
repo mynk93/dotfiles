@@ -1,0 +1,66 @@
+#!/bin/sh
+# Install /etc/pam.d/sudo_local so `sudo` accepts Touch ID.
+#
+# Why a script and not an ordinary chezmoi target: sudo_local lives outside
+# $HOME and is root-owned, so chezmoi cannot manage it as a file. Same shape as
+# the arkenfox script — an out-of-tree target written at apply time.
+#
+# Why sudo_local and not /etc/pam.d/sudo: Apple ships "auth include sudo_local"
+# in the stock sudo stack and never rewrites sudo_local, so the addition
+# survives system updates. That separation earns its keep on a JumpCloud fleet —
+# the agent rewrites the four screensaver pam.d stacks on every launch, but
+# leaves sudo alone.
+#
+# run_onchange rather than run_once: this keeps an out-of-tree file in sync with
+# the content below, so editing that content re-syncs the deployed file.
+set -eu
+
+{{- if ne .chezmoi.os "darwin" }}
+echo "touchid-sudo: not macOS — skipping."
+exit 0
+{{- end }}
+
+target=/etc/pam.d/sudo_local
+
+desired=$(cat <<'PAM'
+# Managed by chezmoi: .chezmoiscripts/run_onchange_after_touchid-sudo.sh.tmpl
+# Touch ID for sudo. Pulled in by the stock /etc/pam.d/sudo; survives OS updates.
+auth       sufficient     pam_tid.so
+PAM
+)
+
+# Behavioural preflight instead of a macOS version comparison: what matters is
+# that the stock sudo stack pulls sudo_local in, and that pam_tid is there to
+# load. Either missing means this machine cannot honour the file, so skip
+# quietly rather than leaving a dead config behind.
+if ! grep -qE '^auth[[:space:]]+include[[:space:]]+sudo_local' /etc/pam.d/sudo; then
+    echo "touchid-sudo: /etc/pam.d/sudo has no 'include sudo_local' — skipping."
+    exit 0
+fi
+
+if ! ls /usr/lib/pam/pam_tid.so* >/dev/null 2>&1; then
+    echo "touchid-sudo: pam_tid.so not present — skipping."
+    exit 0
+fi
+
+# No-op when already current, so a re-run costs no sudo prompt.
+if [ -f "$target" ] && [ "$(cat "$target")" = "$desired" ]; then
+    echo "touchid-sudo: $target already current."
+    exit 0
+fi
+
+# Writing needs root, and sudo needs a TTY to prompt. Skip instead of hanging
+# when stdin is not a terminal (CI, piped apply) — same guard install-deps uses.
+if [ ! -t 0 ]; then
+    echo "touchid-sudo: no TTY for sudo; skipped."
+    echo "touchid-sudo: re-run from a terminal with: chezmoi apply --include=scripts"
+    exit 0
+fi
+
+echo "==> touchid-sudo: writing $target (needs sudo)."
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+printf '%s\n' "$desired" > "$tmp"
+sudo install -m 0644 -o root -g wheel "$tmp" "$target"
+
+echo "touchid-sudo: installed. Verify with: sudo -k && sudo true"
