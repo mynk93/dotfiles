@@ -23,6 +23,7 @@
 #   --skip-claude      don't touch ~/.claude
 #   --skip-configs     don't touch ~/.gitconfig or ~/.config/{bat,btop,glow,git,lazygit}
 #   --skip-shell       don't touch ~/.bashrc
+#   --claude-code      also install the Claude Code CLI (login stays manual)
 #   --claudex          also install CLIProxyAPI + the claudex harness (opt-in;
 #                      needs a one-time device-code login, see the notes it prints)
 
@@ -39,6 +40,7 @@ DO_TOOLS=1
 DO_CLAUDE=1
 DO_CONFIGS=1
 DO_SHELL=1
+DO_CLAUDE_CODE=0
 DO_CLAUDEX=0
 
 while [[ $# -gt 0 ]]; do
@@ -50,8 +52,9 @@ while [[ $# -gt 0 ]]; do
         --skip-claude)  DO_CLAUDE=0;  shift ;;
         --skip-configs) DO_CONFIGS=0; shift ;;
         --skip-shell)   DO_SHELL=0;   shift ;;
+        --claude-code)  DO_CLAUDE_CODE=1; shift ;;
         --claudex)      DO_CLAUDEX=1; shift ;;
-        -h|--help)      sed -n '2,27p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        -h|--help)      sed -n '2,28p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "bootstrap: unknown flag $1" >&2; exit 1 ;;
     esac
 done
@@ -67,7 +70,26 @@ if [[ "$DO_TOOLS" == 1 ]]; then
     echo
 fi
 
-# ── 2. Claude config ───────────────────────────────────────
+# ── 2. Claude Code ─────────────────────────────────────────
+# Opt-in behind --claude-code, and deliberately not part of
+# install-tools.sh: that fetcher resolves GitHub Release assets, while
+# Claude Code ships through its own installer, which owns
+# ~/.local/share/claude/versions and the ~/.local/bin/claude launcher.
+# Re-running upgrades in place, so this is also the upgrade path.
+#
+# The installer only places the binary. Authenticating is a separate
+# interactive step: run `claude` once and follow the code flow it prints.
+if [[ "$DO_CLAUDE_CODE" == 1 ]]; then
+    echo "==> Installing Claude Code"
+    if command -v claude >/dev/null 2>&1; then
+        printf '    currently %s\n' "$(claude --version 2>/dev/null | head -1)"
+    fi
+    curl -fsSL https://claude.ai/install.sh | bash
+    printf '    now %s\n' "$(~/.local/bin/claude --version 2>/dev/null | head -1 || echo installed)"
+    echo
+fi
+
+# ── 3. Claude config ───────────────────────────────────────
 # Mirrors home/dot_claude, except settings.json: the macOS file wires a
 # zsh+jq statusline and three plugin marketplaces (two of them private
 # repos), none of which resolve on a bare Linux box. linux/claude/
@@ -97,7 +119,7 @@ if [[ "$DO_CLAUDE" == 1 ]]; then
     echo
 fi
 
-# ── 3. Tool configs + git ──────────────────────────────────
+# ── 4. Tool configs + git ──────────────────────────────────
 # These tools are configured identically on both platforms, so the configs
 # come straight from home/dot_config with no Linux variant.
 if [[ "$DO_CONFIGS" == 1 ]]; then
@@ -134,7 +156,7 @@ if [[ "$DO_CONFIGS" == 1 ]]; then
     echo
 fi
 
-# ── 4. Shell ───────────────────────────────────────────────
+# ── 5. Shell ───────────────────────────────────────────────
 if [[ "$DO_SHELL" == 1 ]]; then
     echo "==> Installing shell config"
     mkdir -p ~/.config/bash
@@ -180,7 +202,7 @@ PY
     echo
 fi
 
-# ── 5. claudex + CLIProxyAPI ───────────────────────────────
+# ── 6. claudex + CLIProxyAPI ───────────────────────────────
 # The proxy holds upstream OAuth credentials, so nothing here is committed:
 # the config comes from a template with a placeholder, and the API key is
 # generated on this box. The key is never regenerated once it exists, so a

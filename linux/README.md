@@ -26,7 +26,8 @@ exec bash -l
 ```
 
 `--rc-prefix` names the box in claude.ai/code session lists. `--git-name`
-and `--git-email` set the git identity. `--claudex` additionally installs
+and `--git-email` set the git identity. `--claude-code` installs the Claude
+Code CLI (logging in stays a manual step); `--claudex` additionally installs
 CLIProxyAPI and the claudex harness (see below). Flags `--skip-tools`,
 `--skip-claude`, `--skip-configs`, `--skip-shell` narrow what runs; all
 steps are idempotent, so re-running is the upgrade path.
@@ -36,6 +37,7 @@ steps are idempotent, so re-running is the upgrade path.
 | Path | From | Notes |
 |---|---|---|
 | `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor |
+| `~/.local/bin/claude` | `claude.ai/install.sh` | `--claude-code` only |
 | `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
 | `~/.vimrc` | `home/dot_vimrc` | verbatim |
