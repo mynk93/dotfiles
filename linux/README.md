@@ -49,6 +49,10 @@ steps are idempotent, so re-running is the upgrade path.
 | `~/.local/bin/claudex` | `home/dot_local/bin/` | `--claudex` only |
 | `~/.config/cliproxyapi/` | `linux/cliproxyapi.yaml` | `--claudex` only, key generated locally |
 
+### Project checkouts
+
+Keep repository URLs and checkout scripts in private configuration outside
+this repository.
 ### claudex on a remote box
 
 `--claudex` installs CLIProxyAPI alongside the harness so the box serves its
