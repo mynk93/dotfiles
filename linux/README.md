@@ -49,6 +49,26 @@ steps are idempotent, so re-running is the upgrade path.
 | `~/.local/bin/claudex` | `home/dot_local/bin/` | `--claudex` only |
 | `~/.config/cliproxyapi/` | `linux/cliproxyapi.yaml` | `--claudex` only, key generated locally |
 
+### The work checkout
+
+`clone-work-repos.sh` clones the `prodigal-tech` repos into `~/dev/work`.
+It is not part of `bootstrap.sh`, because it needs a GitHub credential the
+bootstrap does not create — and without one all 24 clones fail at once.
+So, once per box:
+
+```sh
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_github -C "<box-name>"
+printf 'Host github.com\n    User git\n    IdentityFile ~/.ssh/id_ed25519_github\n    IdentitiesOnly yes\n' \
+    >> ~/.ssh/config
+cat ~/.ssh/id_ed25519_github.pub    # add this to github.com/settings/keys
+~/.dotfiles/linux/clone-work-repos.sh
+```
+
+Generate the key on the box; never copy one between boxes. The clone is
+also what creates `~/dev/work`, which matters because the rc session in
+`bashrc.linux` `cd`s there — set `CLAUDE_RC_DIR` in
+`~/.config/bash/local.bash` if this box keeps its work somewhere else.
+
 ### claudex on a remote box
 
 `--claudex` installs CLIProxyAPI alongside the harness so the box serves its
