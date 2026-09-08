@@ -158,3 +158,31 @@ if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [[ -x "$HOME/.local/bin
                 --no-create-session-in-dir \
                 --remote-control-session-name-prefix ${CLAUDE_RC_PREFIX:-$(hostname -s)}"
 fi
+
+# ── SSH agent ──────────────────────────────────────────────
+# One agent per box, shared by every ssh login and tmux pane. There is no
+# systemd user session and no macOS Keychain here, so the socket lives at a
+# fixed path and an agent is spawned only when nothing answers on it.
+# Idempotent: re-sourcing finds the running agent and reuses it.
+#
+# Strictly a convenience — the GitHub key has no passphrase and
+# ~/.ssh/config points at it with IdentityFile, so git works without this.
+# The agent matters for agent forwarding and for any key added later that
+# does carry a passphrase.
+if [[ $- == *i* ]]; then
+    export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+    ssh-add -l >/dev/null 2>&1
+    # 2 = nothing answered on the socket; 1 = agent is up but holds no keys.
+    if [[ $? -eq 2 ]]; then
+        rm -f "$SSH_AUTH_SOCK"
+        ssh-agent -a "$SSH_AUTH_SOCK" >/dev/null 2>&1
+    fi
+
+    # Match on fingerprint, not path: ssh-add -l prints the key comment.
+    if [[ -f "$HOME/.ssh/id_ed25519_github" ]]; then
+        _gh_fp=$(ssh-keygen -lf "$HOME/.ssh/id_ed25519_github.pub" 2>/dev/null | awk '{print $2}')
+        ssh-add -l 2>/dev/null | grep -qF "$_gh_fp" || \
+            ssh-add -q "$HOME/.ssh/id_ed25519_github" 2>/dev/null
+        unset _gh_fp
+    fi
+fi
