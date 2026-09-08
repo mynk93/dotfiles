@@ -1,0 +1,42 @@
+# ~/.gitconfig — Linux dev-box git config.
+#
+# Deliberately carries no [user] block. This repo is public, so the identity
+# (name, email, signing key) is written by bootstrap.sh to
+# ~/.config/git/local, which is never committed — the same split .ssh/config
+# uses with config.local. A missing include is not an error; git skips it.
+#
+# Differences from the macOS dot_gitconfig.tmpl: editor is vim rather than
+# `zed --wait` (no GUI on a remote box, and vim already blocks so it needs no
+# --wait), and commit/tag signing is omitted because these boxes carry no GPG
+# key.
+
+[include]
+	path = ~/.config/git/local
+
+[alias]
+	lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+	owner = !git shortlog -sn --no-merges
+	cluster = !git log --format=format: --name-only --since='1 year ago' | sort | uniq -c | sort -nr | head -20
+	velocity = !git log --format='%ad' --date=format:'%Y-%m' | sort | uniq -c
+	bugview = !git log -i -E --grep='fix|fixes|bug|broken|bugfix' --name-only --format='' | sort | uniq -c | sort -nr | head -20
+	fire = !git log --color=always --oneline --since='1 year ago' | grep --color=never -iE 'revert|hotfix|emergency|rollback'
+
+[core]
+	editor = vim
+	pager = delta
+	excludesfile = ~/.config/git/ignore
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	line-numbers = true
+	side-by-side = false
+	light = false
+
+[merge]
+	conflictstyle = diff3
+
+[diff]
+	colorMoved = default
