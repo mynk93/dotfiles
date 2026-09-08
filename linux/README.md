@@ -120,8 +120,8 @@ not set.
 ## What does not carry over
 
 Dropped because it is macOS-only: `explorer` (`open`), `ip`
-(`ipconfig getifaddr en0`), every `zed` alias, `EDITOR='zed --wait'`,
-Homebrew shellenv, `PAGER='moor'`.
+(`ipconfig getifaddr en0` — the alias is kept, with a Linux body), every
+`zed` alias, `EDITOR='zed --wait'`, Homebrew shellenv.
 
 Dropped because it is zsh-only: antidote plugins, `zstyle` menu
 completion, the `mynk.zsh` prompt, the `add-zsh-hook` project-local
