@@ -107,6 +107,30 @@ The macOS `dot_gitconfig.tmpl` also differs in two places: `core.editor` is
 blocks), and commit/tag signing is dropped because these boxes carry no GPG
 key.
 
+### Remote Control
+
+`bashrc.linux` keeps a detached tmux `rc` session holding a
+`claude remote-control` gateway, so the box stays reachable from
+claude.ai/code across ssh disconnects and pod restarts. There is no
+systemd here, and the `has-session` check makes re-sourcing a no-op.
+
+`CLAUDE_RC_PREFIX` names the box in session lists and `CLAUDE_RC_DIR` is
+the directory it serves from (default `~/dev/work`); both live in
+`~/.config/bash/local.bash`, which `--rc-prefix` seeds. The directory has
+to exist — the session `cd`s there and dies silently if it can't.
+
+On a fresh box the gateway stops at a one-time `Enable Remote Control?
+(y/n)` prompt, which `remoteControlAtStartup` does not answer for you.
+Answer it without attaching:
+
+```sh
+tmux send-keys -t rc y Enter
+tmux capture-pane -p -t rc | tail -5    # expect: ✔︎ Ready · <dir> · HEAD
+```
+
+Until it is answered the session is up but serving nothing, which looks
+identical to a working box from the outside.
+
 ### Why settings.json is forked
 
 The macOS `home/dot_claude/settings.json` wires a statusline that runs a
