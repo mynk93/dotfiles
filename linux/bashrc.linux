@@ -16,6 +16,14 @@ export EDITOR='vim'
 export VISUAL="$EDITOR"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
+# PATH comes first: every `command -v` guard in this file probes it, and
+# install-tools.sh puts its binaries here. A guard that runs earlier sees
+# none of them on a box whose own ~/.bashrc doesn't already add this dir.
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
 # moor is the pager when install-tools.sh has fetched it, matching .zshenv;
 # less stays the fallback for a box where it hasn't run yet.
 command -v moor >/dev/null 2>&1 && export PAGER='moor'
@@ -25,11 +33,6 @@ command -v moor >/dev/null 2>&1 && export PAGER='moor'
 #   -R render raw ANSI colour escapes
 #   -X don't clear screen on exit (preserve scrollback)
 export LESS='-FRX'
-
-case ":$PATH:" in
-    *":$HOME/.local/bin:"*) ;;
-    *) export PATH="$HOME/.local/bin:$PATH" ;;
-esac
 
 # ── History ────────────────────────────────────────────────
 # Closest bash equivalents to the setopt block in .zshrc.
