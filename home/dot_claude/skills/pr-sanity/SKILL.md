@@ -58,7 +58,11 @@ fi
 
 git worktree add --detach .worktrees/pr-sanity HEAD
 mkdir -p .worktrees/pr-sanity/.review/out
-git diff "$BASE"..HEAD > .worktrees/pr-sanity/.review/diff.patch
+# -W (function context): each hunk expands to its enclosing function or, with
+# a diff driver active, its enclosing section (see ~/.config/git/attributes).
+# Readers see the unit around a change without opening the file. Drop back to
+# -U<n> if the patch grows too large for the reader context.
+git diff -W "$BASE"..HEAD > .worktrees/pr-sanity/.review/diff.patch
 ```
 
 Write the PR body to `.review/body.md` — pre-PR: copy the body file; post-ready: write the `body` field fetched in step 2. Add `.review/issue.md` from step 2 when issues are linked.
@@ -74,11 +78,11 @@ Then write `.review/manifest.json`:
   "target": "<TARGET>",
   "merge_base": "<sha>",
   "problem_source": { "type": "issue | plan_doc | none", "refs": ["<issue URLs or doc path>"] },
-  "files": [{ "path": "...", "additions": 0, "deletions": 0 }]
+  "files": [{ "path": "...", "status": "A | M | D | R | C", "from": "<old path, renames and copies only>", "additions": 0, "deletions": 0 }]
 }
 ```
 
-(`files` comes from `git diff --numstat`; binary files report `-` there — record those as `{ "path": "...", "binary": true }`. `repo` and `pr_number` are recorded so nothing downstream has to guess them.) An empty diff is fine — the pass degrades to a body-and-issue-only read.
+(`files` joins `git diff --numstat` with `git diff --name-status -M`, both over the same `$BASE..HEAD` range. `status` is the one-letter name-status code; `from` is present only for `R`/`C`. Renames and deletions are recorded explicitly so a reader can search the checkout for references that survive them without inferring the fact from the patch. Binary files report `-` in numstat — record those as `{ "path": "...", "status": "...", "binary": true }`. `repo` and `pr_number` are recorded so nothing downstream has to guess them.) An empty diff is fine — the pass degrades to a body-and-issue-only read.
 
 The worktree gives the readers the full checkout at branch HEAD — needed to judge comment density and naming against each file's existing idiom — with no network calls. It also contains any stray write a reader might make, since the whole tree is discarded after the run.
 
