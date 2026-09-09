@@ -1,0 +1,15 @@
+# Builtin diff drivers: language-aware hunk headers and function context (git diff -W).
+# Off by default; a pattern must opt in. XDG default path, no core.attributesFile needed.
+*.md    diff=markdown
+*.py    diff=python
+*.sh    diff=bash
+*.zsh   diff=bash
+*.go    diff=golang
+*.rs    diff=rust
+*.java  diff=java
+*.kt    diff=kotlin
+*.rb    diff=ruby
+*.php   diff=php
+*.css   diff=css
+*.html  diff=html
+*.tex   diff=tex

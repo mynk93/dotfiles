@@ -7,6 +7,7 @@ Ground rules:
 - The review bundle is in `.review/`: `body.md` (the PR description), `manifest.json` (branch, target, changed files), `diff.patch` (the full diff), and `issue.md` (the linked GitHub issue — or issues, each under its own heading — when any exist; this is the problem statement the change claims to solve). Read the bundle first: `issue.md` if present, then `body.md`, `manifest.json`, `diff.patch`.
 - The bundle files themselves are review tooling, not part of the PR — never report findings about their format or contents-as-files. Ignore `.review/out/` entirely.
 - Open the checked-out files around any diff hunk when you need surrounding context; read changed docs in full.
+- For every name the diff renames or removes — files (see `status` in `manifest.json`), symbols, flags, headings — search the whole checkout for references that still use the old name. A reference the change orphaned is a stumble even when it sits in a file the diff never touched.
 - Quote verbatim. Cite paths relative to this directory with line numbers. Findings about the PR description cite `.review/body.md` lines; findings about the issue cite `.review/issue.md` lines.
 - Report observations only — never suggest, draft, or hint at a fix.
 
