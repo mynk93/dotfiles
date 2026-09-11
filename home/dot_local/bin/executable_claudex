@@ -36,10 +36,14 @@ export ANTHROPIC_AUTH_TOKEN="$(cat "$KEY_FILE")"
 # claude-* model it holds no credential for.
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.6-luna
 
-# Astra's default window per Codex's model catalog (~/.codex/models_cache.json:
-# context_window 272000, max_context_window 872000). Without this Claude Code
-# does not recognize the model name and assumes 200k, compacting early.
-export CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000
+# Astra's raw window is 1.05M, but OpenAI re-prices the WHOLE request at 2x
+# input and 1.5x output once a prompt passes 272k input tokens. Codex dodges
+# that cliff by compacting at context_window * effective_context_window_percent
+# (272000 * 0.95 = 258400) and we mirror its limit rather than sit on the
+# boundary. Raising this above 272000 doubles the bill; see openai/codex#32486.
+# Without the variable Claude Code does not recognize the model and assumes
+# 200k, compacting early.
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=258400
 
 export CLAUDE_CODE_SUBAGENT_MODEL=gpt-6-astra
 export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1
