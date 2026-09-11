@@ -1,5 +1,5 @@
 #!/bin/sh
-# claudex — the Claude Code harness driving GPT-5.6 Sol through the local
+# claudex — the Claude Code harness driving GPT-6 Astra through the local
 # CLIProxyAPI on :8317.
 #
 # Script form (rather than only a zsh alias) so non-interactive callers can use
@@ -7,9 +7,9 @@
 # runs without sourcing ~/.config/zsh/local.zsh.
 #
 # Defaults are set before "$@" so any flag you pass wins over them:
-#   claudex                        -> interactive session, sol @ xhigh
-#   claudex --effort high -p "..." -> headless, effort overridden to high
-#   claudex --model gpt-5.6-luna   -> different model, same proxy
+#   claudex                        -> interactive session, astra @ high
+#   claudex --effort xhigh -p "..." -> headless, effort overridden to xhigh
+#   claudex --model gpt-5.6-sol    -> different model, same proxy
 
 set -eu
 
@@ -34,15 +34,16 @@ export ANTHROPIC_AUTH_TOKEN="$(cat "$KEY_FILE")"
 
 # Claude Code's background haiku calls would otherwise ask the proxy for a
 # claude-* model it holds no credential for.
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.4-mini
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.6-luna
 
-# Sol's real window per the proxy's embedded catalog; without this Claude Code
+# Astra's default window per Codex's model catalog (~/.codex/models_cache.json:
+# context_window 272000, max_context_window 872000). Without this Claude Code
 # does not recognize the model name and assumes 200k, compacting early.
-export CLAUDE_CODE_MAX_CONTEXT_TOKENS=372000
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000
 
-export CLAUDE_CODE_SUBAGENT_MODEL=gpt-5.6-sol
+export CLAUDE_CODE_SUBAGENT_MODEL=gpt-6-astra
 export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1
 export CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3
 export ENABLE_TOOL_SEARCH=false
 
-exec claude --model gpt-5.6-sol --effort xhigh "$@"
+exec claude --model gpt-6-astra --effort high "$@"
