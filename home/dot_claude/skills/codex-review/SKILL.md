@@ -50,26 +50,36 @@ which is a wider gap than sharing a harness could give.
    subagent model and one observed run spawned ten reviewer subagents of its own,
    exhausting the plan quota before a single finding was written. `codex exec`
    has no Agent tool and no equivalent flag, so that particular hole is closed
-   by construction rather than by flag. The shell is still open, though: a
+   by construction rather than by flag. The shell was the remaining hole: a
    reviewer running unsandboxed can invoke `codex`, `claude`, or `cmux`
    directly, and one did, spawning three sessions that billed elsewhere. The
-   prompt's `<no_delegation>` block is now the *only* thing closing that path,
-   where it used to be the second of two. Do not weaken it.
-5. **Unrestricted reviewer, disposable worktree, gated fixes.** The reviewer
-   runs with `--dangerously-bypass-approvals-and-sandbox`: it can execute code
-   to *prove* a trigger rather than merely assert it, which measurably sharpens
-   findings, and `codex exec` has no interactive approver to answer a mid-run
-   prompt anyway. The flag is also forced by symmetry — `codex exec resume`
-   accepts no `--sandbox`, so it is the one setting expressible on both the
-   launch and every follow-up. Be precise about what that costs: there is no cage. Scratch files
-   under the worktree die at cleanup, but the worktree sits at
-   `.worktrees/codex-review` *inside* the repo, so the primary checkout is two
-   levels up and reachable; worktrees share the ref store and object database,
-   so a `git update-ref`, `branch -f`, or `tag` outlives `worktree remove`; and
-   the prompt's `no network calls` is an instruction, not an enforcement. What
-   actually protects the change under review is the gate on the other side —
-   fixes happen only in the primary checkout, only after the user approves the
-   triage report, and are left uncommitted.
+   sandbox of principle 5 closes it — no network reaches an API, and the cmux
+   socket is denied. Keep the prompt's `<no_delegation>` block as the second
+   layer; it is the one that still holds if a run ever re-enables network.
+5. **Sandboxed reviewer, disposable worktree, gated fixes.** The reviewer runs
+   under `-c sandbox_mode="workspace-write" -c approval_policy="never"`: it
+   reads the whole disk, writes inside the worktree and the temp dirs, and
+   executes code to *prove* a trigger rather than merely assert it, which
+   measurably sharpens findings. `never` is the load-bearing half — under any
+   other policy a denied command raises an escalation that headless `codex exec`
+   has no one to answer, and a `~/.codex/config.toml` carrying an
+   `approvals_reviewer` hands it to an automatic reviewer instead of failing
+   fast. Be precise about what the cage holds: writes to the primary checkout
+   two levels up are denied, and so are writes to the shared ref store, which is
+   what keeps a `git update-ref`, `branch -f`, or `tag` from outliving
+   `worktree remove`. Network is off, so the prompt's `no network calls` is
+   enforcement rather than instruction. Reads stay unrestricted, and `git add`
+   fails even inside the worktree — no cost, since a reviewer has no business
+   staging anything. What protects the change under review is still the gate on
+   the other side: fixes happen only in the primary checkout, only after the
+   user approves the triage report, and are left uncommitted.
+
+   Both settings ride on *every* invocation, launch and resume alike. The
+   sandbox alone would carry over — Codex records `sandbox_policy` in the
+   session and replays it on resume — but `approval_policy` does not: a resume
+   without it reverts to `on-request` silently, mid-run. Passing both everywhere
+   keeps each command self-documenting and independent of inheritance the CLI
+   does not document.
 6. **Prompts arrive as files, never as spliced text.** Every prompt is fed on
    stdin as `- < file`, `-` being Codex's explicit read-from-stdin form. Review
    prompts quote code (backticks, `$()`); text spliced into
@@ -128,10 +138,21 @@ fi
 
 git worktree add --detach .worktrees/codex-review HEAD
 mkdir -p .worktrees/codex-review/.review/out
+
+# WT-3: a fresh worktree has no gitignored runtime files, and the sandbox has no
+# network to rebuild them. Link what the primary checkout already has, so the
+# prompt's "run the test suite" is available rather than an install away.
+for RUNTIME in .venv node_modules; do
+  [ -e "$RUNTIME" ] && ln -s "$PWD/$RUNTIME" ".worktrees/codex-review/$RUNTIME"
+done
 git diff "$BASE"..HEAD > .worktrees/codex-review/.review/diff.patch
 cp ~/.claude/skills/codex-review/prompts/review.md \
    .worktrees/codex-review/.review/prompt.md
 ```
+
+Those links are read-through only: macOS resolves them to the primary checkout,
+which the sandbox denies writes to. The reviewer runs tools as
+`.venv/bin/<tool>`; `uv run`, `uv sync`, and `pip install` want writes and fail.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
@@ -149,7 +170,7 @@ WT=<absolute path to .worktrees/codex-review>
 # UUID handle: high-effort runs are long and surface:N refs renumber if workspaces close
 REV=$(CMUX_QUIET=1 cmux --id-format uuids new-split right | awk '/^OK/{print $2}')
 cmux rename-tab --surface "$REV" "codex-review"
-cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; codex exec --json --model gpt-6-astra -c model_reasoning_effort=\"high\" --dangerously-bypass-approvals-and-sandbox -o .review/out/result.md - < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | if .type==\"item.completed\" then (.item.text // (\"→ \" + .item.type)) else empty end'; echo \$? > .review/out/rc\n"
+cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; codex exec --json --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/result.md - < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | if .type==\"item.completed\" then (.item.text // (\"→ \" + .item.type)) else empty end'; echo \$? > .review/out/rc\n"
 
 echo "WT=$WT REV=$REV"   # carry these forward — see below
 ```
@@ -236,7 +257,7 @@ with the Write tool, then resume by pinned id:
 
 ```bash
 # Write tool → $WT/.review/followup-<n>.txt
-cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" --dangerously-bypass-approvals-and-sandbox -o .review/out/followup-<n>.md - < .review/followup-<n>.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
+cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/followup-<n>.md - < .review/followup-<n>.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
 ```
 
 `resume $SID` targets this exact thread. Codex also offers `resume --last`;
@@ -299,7 +320,7 @@ GIT_INDEX_FILE="$TMP_INDEX" git diff --cached HEAD > "$WT/.review/fixes-$R.patch
 #   "Fixes were applied for your accepted findings — see .review/fixes-<R>.patch.
 #    For each finding F<n>: addressed / not addressed / new concern, one line each.
 #    Read the files at their current state; do not judge from the patch alone."
-cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" --dangerously-bypass-approvals-and-sandbox -o .review/out/verdict-$R.md - < .review/verdict-prompt-$R.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
+cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/verdict-$R.md - < .review/verdict-prompt-$R.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
 ```
 
 Fixes stay uncommitted and HEAD never moves, so each round's patch is
@@ -336,6 +357,9 @@ and an unkilled waiter would ride out its full 30 minutes on a run that is
 already dead. Then:
 
 ```bash
+# $SID lives in the worktree, so read it before removing the tree — the transcript
+# outlives both, and a sensitive diff is deleted with `codex delete --force "$SID"`.
+SID=$(cat "$WT/.review/out/sid")
 git worktree remove --force .worktrees/codex-review
 ```
 
@@ -343,14 +367,12 @@ Everything the run wrote *as files* — `prompt.md`, `diff.patch`, `raw.jsonl`,
 `sid`, every `followup-<n>` and round-numbered `fixes` / `verdict` input and
 output, every `rc` sentinel,
 and the reviewer's own scratch — lives under the worktree, so removing the
-worktree disposes it in one step. Three things it does not dispose — the first
-two per principle 5: anything the reviewer wrote *outside* the worktree, any ref
-it created in the shared object store, and Codex's own transcript of the session,
-which it records under `~/.codex/sessions/` and indexes in
-`~/.codex/session_index.jsonl` regardless of the worktree. That transcript is
-what makes `resume` work, so it has to outlive the run; delete it by hand if the
-diff was sensitive. If a run looked like it wandered, `git reflog` and
-`git branch --all` after cleanup are the check. Otherwise nothing lands in the
+worktree disposes it in one step. One thing it does not dispose: Codex's own
+transcript of the session, which it records under `~/.codex/sessions/` and
+indexes in `~/.codex/session_index.jsonl` regardless of the worktree. That
+transcript is what makes `resume` work, so it has to outlive the run. The sandbox
+of principle 5 covers the rest — writes outside the worktree and into the shared
+ref store were denied while the run was live. Nothing lands in the
 primary checkout except the applied fixes (left uncommitted); the step-8 patch
 used a throwaway index, so the primary index is untouched. Single-shot by
 design: for a fresh adversarial pass after committing fixes, rerun
