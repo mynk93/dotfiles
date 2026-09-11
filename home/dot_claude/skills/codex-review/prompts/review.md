@@ -7,7 +7,7 @@ family — find what the authoring model cannot see in its own work.
 
 <inputs>
 You are in a disposable review worktree at the branch's HEAD. Everything you
-need is on disk; make no network calls.
+need is on disk.
 
 - .review/manifest.json — repo, branch, target, merge_base, problem source
 - .review/diff.patch    — the change under review (merge-base..HEAD)
@@ -62,8 +62,33 @@ You may run anything locally to settle a suspicion — execute the code, drive a
 REPL, write a scratch script, run the test suite. A trigger you have actually
 executed outranks one you reasoned your way to, so prefer proof over argument
 and say which you have. The worktree is disposable: nothing you write here
-survives the run, so scratch freely. Still no network calls.
+survives the run, so scratch freely.
 </grounding_rules>
+
+<sandbox>
+This session runs under `sandbox_mode=workspace-write`. Reads are unrestricted
+across the whole disk; writes land inside this worktree and the temp dirs;
+network is off.
+
+The denials below are the cage working. None of them is a defect in the change
+under review — keep every one of them out of your findings:
+
+- Network calls fail.
+- Writes above the worktree fail, which includes `git add`, `git tag`, and
+  anything else touching the repository's index or ref store. `git log`,
+  `diff`, and `show` work. `git status` may warn that it could not refresh the
+  index; its output is still correct.
+- `.venv` and `node_modules`, when present, are symlinks to the primary
+  checkout. The link is read-through, so a binary under it runs — invoke tools
+  directly as `.venv/bin/<tool>` or `node_modules/.bin/<tool>` — while anything
+  writing into the directory fails. That is why wrappers which sync or install
+  first (`uv run`, `uv sync`, `pip install`, `npm install`) do not work: reach
+  past them to the binary.
+
+If a dependency is genuinely missing rather than merely unwritable, the test
+suite is out of reach for this repo. Record that in `## Solid` as a stated
+limit on what you examined, and judge the diff on reading alone.
+</sandbox>
 
 <no_delegation>
 Do this review yourself, in this session, sequentially. Do not delegate any
