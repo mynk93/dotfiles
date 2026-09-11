@@ -40,22 +40,12 @@ which is a wider gap than sharing a harness could give.
    fix for it, holding its own evidence rather than re-deriving it. Follow-up
    questions (step 6) carry a soft cap of ~3 rounds; sign-off rounds (step 8)
    do not, because they end on the user's approval gate rather than on a
-   convention. No
-   second reviewer, no Workflow tool, no dynamic agent spawning. Astra at high effort on
-   a real diff is the dominant cost of the run and bills straight to the Codex
+   convention. One reviewer, one session, no fan-out. Astra at high effort on a
+   real diff is the dominant cost of the run and bills straight to the Codex
    plan through the CLI's own credentials — that is the reason for the cap. The
-   cap bounds *orchestrator* rounds, not the reviewer's own fan-out, and this is
-   the one place where moving off `claudex` costs something. The old launch
-   carried `--disallowedTools Agent` because a Claude Code reviewer inherits a
-   subagent model and one observed run spawned ten reviewer subagents of its own,
-   exhausting the plan quota before a single finding was written. `codex exec`
-   has no Agent tool and no equivalent flag, so that particular hole is closed
-   by construction rather than by flag. The shell was the remaining hole: a
-   reviewer running unsandboxed can invoke `codex`, `claude`, or `cmux`
-   directly, and one did, spawning three sessions that billed elsewhere. The
-   sandbox of principle 5 closes it — no network reaches an API, and the cmux
-   socket is denied. Keep the prompt's `<no_delegation>` block as the second
-   layer; it is the one that still holds if a run ever re-enables network.
+   cap bounds *orchestrator* rounds, not the reviewer's own fan-out. Keep the
+   prompt's `<no_delegation>` block as the second layer behind principle 5's
+   sandbox; it is the one that still holds if a run re-enables network.
 5. **Sandboxed reviewer, disposable worktree, gated fixes.** The reviewer runs
    under `-c sandbox_mode="workspace-write" -c approval_policy="never"`: it
    reads the whole disk, writes inside the worktree and the temp dirs, and
@@ -64,22 +54,19 @@ which is a wider gap than sharing a harness could give.
    other policy a denied command raises an escalation that headless `codex exec`
    has no one to answer, and a `~/.codex/config.toml` carrying an
    `approvals_reviewer` hands it to an automatic reviewer instead of failing
-   fast. Be precise about what the cage holds: writes to the primary checkout
-   two levels up are denied, and so are writes to the shared ref store, which is
-   what keeps a `git update-ref`, `branch -f`, or `tag` from outliving
-   `worktree remove`. Network is off, so the prompt's `no network calls` is
-   enforcement rather than instruction. Reads stay unrestricted, and `git add`
-   fails even inside the worktree — no cost, since a reviewer has no business
-   staging anything. What protects the change under review is still the gate on
-   the other side: fixes happen only in the primary checkout, only after the
-   user approves the triage report, and are left uncommitted.
+   fast. The cage holds writes to the primary checkout two levels up and writes
+   to the shared ref store, which is what keeps a `git update-ref`, `branch -f`,
+   or `tag` from outliving `worktree remove`. Network is off, so the prompt's
+   `<sandbox>` block states enforcement rather than asking for restraint. What protects the
+   change under review is still the gate on the other side: fixes happen only in
+   the primary checkout, only after the user approves the triage report, and are
+   left uncommitted. The denials the reviewer meets are spelled out in
+   `prompts/review.md` — that is the reader who has to act on them.
 
    Both settings ride on *every* invocation, launch and resume alike. The
    sandbox alone would carry over — Codex records `sandbox_policy` in the
    session and replays it on resume — but `approval_policy` does not: a resume
-   without it reverts to `on-request` silently, mid-run. Passing both everywhere
-   keeps each command self-documenting and independent of inheritance the CLI
-   does not document.
+   without it reverts to `on-request` silently, mid-run.
 6. **Prompts arrive as files, never as spliced text.** Every prompt is fed on
    stdin as `- < file`, `-` being Codex's explicit read-from-stdin form. Review
    prompts quote code (backticks, `$()`); text spliced into
@@ -150,9 +137,12 @@ cp ~/.claude/skills/codex-review/prompts/review.md \
    .worktrees/codex-review/.review/prompt.md
 ```
 
-Those links are read-through only: macOS resolves them to the primary checkout,
-which the sandbox denies writes to. The reviewer runs tools as
-`.venv/bin/<tool>`; `uv run`, `uv sync`, and `pip install` want writes and fail.
+Two deliberate departures from WT-3: the loop names `.venv` and `node_modules`
+instead of deferring to a repo's `scripts/setup-worktree.sh`, because such a
+script commonly installs rather than links and this step has to stay a pure
+symlink; and `.env*` is left behind, because a hostile reviewer has
+no business holding the secrets. What the links do and do not permit belongs to
+the reviewer, so it lives in `prompts/review.md`'s `<sandbox>` block.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
@@ -242,7 +232,11 @@ writes the agent's final message there directly, so nothing has to reconstruct i
 from the event stream. A missing or empty `result.md` means the run died before
 finishing: read `.review/out/err.log`, the `error` items above, and `rc`
 (meaningful only because step 4 set `pipefail`), then decide whether to
-relaunch. If the waiter hits its 30m ceiling, judge liveness before killing
+relaunch. Sandbox denials are not a cause of death: they surface in the
+reviewer's own commentary in `raw.jsonl` (search `Operation not permitted`) and
+possibly in `err.log`, and their presence is principle 5's cage holding. The
+inverse is the signal worth chasing — a `raw.jsonl` showing an install or a
+fetch *succeed* means the sandbox was never applied. If the waiter hits its 30m ceiling, judge liveness before killing
 anything — `raw.jsonl` still growing (`wc -c` twice, ~30s apart) means the run is
 slow, not hung, and the fix is to restart the waiter. `cmux refresh-surfaces`
 then `cmux read-screen --surface "$REV" --lines 60` is the backup probe when the
@@ -357,10 +351,13 @@ and an unkilled waiter would ride out its full 30 minutes on a run that is
 already dead. Then:
 
 ```bash
-# $SID lives in the worktree, so read it before removing the tree — the transcript
-# outlives both, and a sensitive diff is deleted with `codex delete --force "$SID"`.
+# $SID lives in the worktree; read it before removing the tree.
 SID=$(cat "$WT/.review/out/sid")
 git worktree remove --force .worktrees/codex-review
+
+# Provisional — see below. Neither should carry anything the reviewer wrote.
+git reflog --date=iso | head -20
+git branch --all
 ```
 
 Everything the run wrote *as files* — `prompt.md`, `diff.patch`, `raw.jsonl`,
@@ -370,10 +367,18 @@ and the reviewer's own scratch — lives under the worktree, so removing the
 worktree disposes it in one step. One thing it does not dispose: Codex's own
 transcript of the session, which it records under `~/.codex/sessions/` and
 indexes in `~/.codex/session_index.jsonl` regardless of the worktree. That
-transcript is what makes `resume` work, so it has to outlive the run. The sandbox
-of principle 5 covers the rest — writes outside the worktree and into the shared
-ref store were denied while the run was live. Nothing lands in the
-primary checkout except the applied fixes (left uncommitted); the step-8 patch
+transcript is what makes `resume` work, so it has to outlive the run. Report
+that it persists and name `codex delete --force "$SID"`; run it only when the
+user says the diff was sensitive.
+
+The reflog and branch check is provisional. Principle 5's sandbox denies the
+ref-store writes that used to make it necessary, but no run has yet completed
+under those flags — until one has, report anything the reviewer left behind
+rather than assuming the cage held. Cut both commands once a real run comes back
+clean.
+
+Nothing lands in the primary checkout except the applied fixes (left
+uncommitted); the step-8 patch
 used a throwaway index, so the primary index is untouched. Single-shot by
 design: for a fresh adversarial pass after committing fixes, rerun
 `/codex-review`.
