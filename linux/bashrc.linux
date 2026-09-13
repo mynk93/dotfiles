@@ -147,6 +147,33 @@ if [[ $- == *i* ]] && [[ -d /var/run/s6/services && -x "$HOME/.local/bin/s6-user
     "$HOME/.local/bin/s6-user-services-install" > "$HOME/.local/state/s6-user-install.log" 2>&1
 fi
 
+# ── T3 Code update ─────────────────────────────────────────
+# The desktop app offers to update the server but cannot: remote updates go
+# through `t3 service install`, which wants systemd. So it is two commands,
+# and they have to run together -- T3 lazy-loads hashed chunks from the
+# package directory, so a running server whose package was replaced underneath
+# it starts reaching for files that no longer exist. The restart drops live
+# connections; threads resume from state.sqlite.
+#
+# Channel: the argument if given, else $T3_CHANNEL (set it in local.bash),
+# else whatever the installed build already is -- a nightly stays nightly.
+update-t3() {
+    local channel="${1:-${T3_CHANNEL:-}}"
+    if [[ -z "$channel" ]]; then
+        case "$(t3 --version 2>/dev/null)" in
+            *nightly*) channel=nightly ;;
+            *preview*) channel=preview ;;
+            *)         channel=latest  ;;
+        esac
+    fi
+    echo "update-t3: installing t3@${channel}" \
+        && npm i -g --allow-scripts=msgpackr-extract,node-pty "t3@${channel}" \
+        && s6-svc -r /var/run/s6/services/t3-serve \
+        && sleep 3 \
+        && s6-svstat /var/run/s6/services/t3-serve \
+        && t3 --version
+}
+
 # ── Idle-shutdown sentinel ─────────────────────────────────
 # TrueFoundry stops the pod when it judges it idle. Its own definition, from
 # the deployment form: "The instance is considered active if there is at least
