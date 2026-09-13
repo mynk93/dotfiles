@@ -226,11 +226,18 @@ hand, and it should track whatever channel the client is on — a nightly
 desktop against a stable server shows a banner it can never clear.
 
 ```sh
+update-t3            # channel: $T3_CHANNEL, else whatever is installed
+update-t3 nightly    # switch channel
+```
+
+That is a function in `bashrc.linux` wrapping the two commands below, which
+have to run together.
+
+```sh
 npm i -g --allow-scripts=msgpackr-extract,node-pty t3@nightly
 s6-svc -r /var/run/s6/services/t3-serve
 ```
-
-Run the two together. T3 lazy-loads hashed chunks from the package directory,
+ T3 lazy-loads hashed chunks from the package directory,
 so replacing it underneath a running server leaves the old process reaching
 for files that no longer exist. The restart drops live connections; threads
 are resumed from `state.sqlite`, so nothing is lost, but anything mid-turn
