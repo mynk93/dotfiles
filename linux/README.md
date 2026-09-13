@@ -243,6 +243,29 @@ for files that no longer exist. The restart drops live connections; threads
 are resumed from `state.sqlite`, so nothing is lost, but anything mid-turn
 needs picking up again.
 
+#### Context7 on the box
+
+`~/.claude/rules/context7.md` and the `context7-mcp` skill come over with
+the Claude config, but they only tell the agent to *use* Context7. The MCP
+server itself is per-machine state -- Claude Code keeps it in `~/.claude.json`
+and Codex in `~/.codex/config.toml` -- and neither is copied by the bootstrap
+because both carry your API key. Once per box, with the key from
+context7.com:
+
+```sh
+claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp \
+    --header "CONTEXT7_API_KEY: <key>"
+cat >> ~/.codex/config.toml <<'TOML'
+
+[mcp_servers.context7]
+http_headers = { "Authorization" = "Bearer <key>" }
+url = "https://mcp.context7.com/mcp"
+TOML
+```
+
+T3-spawned sessions pick both up: Claude loads user-scope servers alongside
+the one T3 injects, and Codex reads its config on every start.
+
 ### Keeping the pod alive
 
 TrueFoundry stops the pod when it judges it idle. Its own definition, from the
