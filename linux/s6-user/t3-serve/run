@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /home/jovyan/.local/bin/t3-serve-run

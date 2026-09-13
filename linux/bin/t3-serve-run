@@ -1,0 +1,36 @@
+#!/usr/bin/with-contenv bash
+# Supervised T3 Code server (github.com/pingdotgg/t3code).
+#
+# `t3 service install` writes a systemd unit, and this box has no systemd, so
+# s6 supervises it instead -- same reason claude-rc is an s6 service.
+#
+# The PATH is spelled out rather than inherited. with-contenv hands over the
+# container's PATH, which has neither ~/.local/bin nor node on it, and nvm is a
+# shell function that only exists inside an interactive bash. The nvm bin
+# directory is resolved at start so a node upgrade needs no edit here. T3 opens
+# PTYs for agent sessions and those children inherit this PATH, so the CLI
+# tools the agents expect have to be on it too.
+export HOME=/home/jovyan
+
+NVM_BIN="$(ls -d "$HOME/.config/nvm/versions/node/v"*/bin 2>/dev/null | sort -V | tail -1)"
+export PATH="$NVM_BIN:$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# The container env carries no CA variables -- sshd injects them from
+# /etc/environment, which a supervised service never reads. Python tooling in
+# the work repos expects them, so set them from the system trust store.
+export SSL_CERT_DIR=/etc/ssl/certs
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# How the server is exposed is a per-box decision, so it lives outside this
+# script. Default is loopback-only; the box is reached over whatever tunnel is
+# in front of it. See linux/README.md for the tailnet alternative.
+T3_SERVE_ARGS="--host 127.0.0.1"
+[ -f "$HOME/.config/t3/serve.env" ] && . "$HOME/.config/t3/serve.env"
+
+mkdir -p "$HOME/.local/state/t3"
+exec >> "$HOME/.local/state/t3/serve.log" 2>&1
+echo "--- t3-serve starting $(date -Is) [args: $T3_SERVE_ARGS] ---"
+cd "$HOME/dev/work" || exit 1
+exec t3 serve $T3_SERVE_ARGS

@@ -12,11 +12,10 @@
 #
 # Usage:
 #   git clone https://github.com/mynk93/dotfiles.git ~/.dotfiles
-#   ~/.dotfiles/linux/bootstrap.sh --rc-prefix linux \
+#   ~/.dotfiles/linux/bootstrap.sh --t3 \
 #       --git-name "Your Name" --git-email you@example.com
 #
 # Flags:
-#   --rc-prefix NAME   name this box in claude.ai/code session lists
 #   --git-name NAME    git author name  -> ~/.config/git/local (never committed)
 #   --git-email EMAIL  git author email -> ~/.config/git/local (never committed)
 #   --skip-tools       don't download CLI binaries
@@ -26,6 +25,8 @@
 #   --claude-code      also install the Claude Code CLI (login stays manual)
 #   --claudex          also install CLIProxyAPI + the claudex harness (opt-in;
 #                      needs a one-time device-code login, see the notes it prints)
+#   --t3               also install the T3 Code server + Codex CLI, write the
+#                      nvm PATH shims, and register the supervised s6 services
 
 set -euo pipefail
 
@@ -33,7 +34,6 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BEGIN_MARK='# >>> dotfiles linux >>>'
 END_MARK='# <<< dotfiles linux <<<'
 
-RC_PREFIX=""
 GIT_NAME=""
 GIT_EMAIL=""
 DO_TOOLS=1
@@ -42,10 +42,10 @@ DO_CONFIGS=1
 DO_SHELL=1
 DO_CLAUDE_CODE=0
 DO_CLAUDEX=0
+DO_T3=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --rc-prefix)    RC_PREFIX="${2:?--rc-prefix needs a value}"; shift 2 ;;
         --git-name)     GIT_NAME="${2:?--git-name needs a value}";   shift 2 ;;
         --git-email)    GIT_EMAIL="${2:?--git-email needs a value}"; shift 2 ;;
         --skip-tools)   DO_TOOLS=0;   shift ;;
@@ -54,10 +54,28 @@ while [[ $# -gt 0 ]]; do
         --skip-shell)   DO_SHELL=0;   shift ;;
         --claude-code)  DO_CLAUDE_CODE=1; shift ;;
         --claudex)      DO_CLAUDEX=1; shift ;;
-        -h|--help)      sed -n '2,28p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        --t3)           DO_T3=1;      shift ;;
+        -h|--help)      sed -n '2,30p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "bootstrap: unknown flag $1" >&2; exit 1 ;;
     esac
 done
+
+# The service layer -- run scripts in ~/.local/bin and s6 definitions in
+# ~/.config/s6-user -- is installed whole, never per-service. Both --t3 and
+# --claudex need part of it (t3-serve, cliproxyapi), and splitting it would
+# mean a box that ran one flag has definitions referencing scripts the other
+# flag installs. Registering a service is separate and idempotent, so copying
+# a definition you do not use costs nothing.
+install_service_layer() {
+    echo "==> Installing supervised-service scripts"
+    mkdir -p ~/.local/bin ~/.config/s6-user ~/.config/t3
+    for f in "$REPO"/linux/bin/*; do
+        install -m 755 "$f" ~/.local/bin/"$(basename "$f")"
+    done
+    cp -r "$REPO"/linux/s6-user/. ~/.config/s6-user/
+    chmod +x ~/.config/s6-user/*/run ~/.config/s6-user/*/finish ~/.config/s6-user/*/check
+    echo "    ~/.local/bin + ~/.config/s6-user populated"
+}
 
 # ── 1. CLI binaries ────────────────────────────────────────
 if [[ "$DO_TOOLS" == 1 ]]; then
@@ -188,17 +206,10 @@ PY
     } >> ~/.bashrc
     echo "    ~/.config/bash/bashrc.linux installed and sourced from ~/.bashrc"
 
-    # Per-machine settings live outside version control.
-    if [[ -n "$RC_PREFIX" ]]; then
-        touch ~/.config/bash/local.bash
-        if grep -q '^export CLAUDE_RC_PREFIX=' ~/.config/bash/local.bash 2>/dev/null; then
-            sed -i "s|^export CLAUDE_RC_PREFIX=.*|export CLAUDE_RC_PREFIX='$RC_PREFIX'|" \
-                ~/.config/bash/local.bash
-        else
-            printf "export CLAUDE_RC_PREFIX='%s'\n" "$RC_PREFIX" >> ~/.config/bash/local.bash
-        fi
-        echo "    CLAUDE_RC_PREFIX=$RC_PREFIX written to ~/.config/bash/local.bash"
-    fi
+    # Per-machine settings live outside version control. bashrc.linux sources
+    # ~/.config/bash/local.bash if it exists; nothing seeds it any more.
+    [[ -f ~/.config/bash/local.bash ]] || touch ~/.config/bash/local.bash
+
     echo
 fi
 
@@ -232,6 +243,11 @@ if [[ "$DO_CLAUDEX" == 1 ]]; then
     chmod 600 ~/.config/cliproxyapi/config.yaml
     echo "    config.yaml regenerated (loopback only, management API disabled)"
 
+    install_service_layer
+    if [[ -d /var/run/s6/services ]]; then
+        ~/.local/bin/s6-user-services-install
+    fi
+
     if [[ -d ~/.cli-proxy-api ]] && compgen -G ~/.cli-proxy-api/'codex-*.json' >/dev/null; then
         echo "    upstream Codex credential already present"
     else
@@ -242,6 +258,67 @@ if [[ "$DO_CLAUDEX" == 1 ]]; then
         echo "    It prints a code to enter in a browser on any device; no browser"
         echo "    is needed on this box. Then open a new shell to start the proxy."
     fi
+    echo
+fi
+
+# ── 7. T3 Code + supervised services ───────────────────────
+# T3 Code drives agent sessions against this box from a browser or phone.
+# `t3 service install` writes a systemd unit and these boxes have no systemd,
+# so s6 supervises it, the same way it supervises the proxy.
+#
+# Everything here is idempotent, so this is also the upgrade path. Logging in
+# is not done here: `t3 connect link --headless` is a one-time interactive
+# step, and so is `codex login`.
+if [[ "$DO_T3" == 1 ]]; then
+    install_service_layer
+
+    echo "==> Installing node PATH shims"
+    ~/.local/bin/nvm-shims-install
+    export PATH="$HOME/.local/bin:$PATH"
+
+    echo "==> Installing t3 + codex"
+    if ! command -v node >/dev/null 2>&1; then
+        echo "    ERROR: no node under ~/.config/nvm/versions/node — install one with nvm first" >&2
+        exit 1
+    fi
+    # --allow-scripts is load-bearing: npm skips install scripts by default, and
+    # without node-pty's build `t3 serve` dies the moment it opens a terminal.
+    #
+    # Track whatever channel the desktop app is on: a nightly client talking to
+    # a stable server shows a "server update available" banner it cannot act on,
+    # because remote updates go through `t3 service install` and that wants
+    # systemd. An env var rather than a flag -- it selects a version of one
+    # package, which is not the kind of choice the other flags make.
+    #   T3_CHANNEL=nightly ~/.dotfiles/linux/bootstrap.sh --t3
+    T3_CHANNEL="${T3_CHANNEL:-latest}"
+    npm i -g --allow-scripts=msgpackr-extract,node-pty "t3@${T3_CHANNEL}" @openai/codex
+    printf '    t3 %s, codex %s\n' "$(t3 --version 2>/dev/null)" "$(codex --version 2>/dev/null)"
+
+    # How the server is exposed is per-box, so it is never overwritten.
+    if [[ ! -f ~/.config/t3/serve.env ]]; then
+        cat > ~/.config/t3/serve.env <<'ENV'
+# Sourced by ~/.local/bin/t3-serve-run. Per-box, never committed.
+#
+# Loopback only. With T3 Connect the tunnel is established by `t3 serve`
+# itself once `t3 connect link --headless` has been run, so this stays as is.
+T3_SERVE_ARGS="--host 127.0.0.1"
+ENV
+        echo "    ~/.config/t3/serve.env seeded (loopback)"
+    fi
+
+    if [[ -d /var/run/s6/services ]]; then
+        echo "==> Registering s6 services"
+        ~/.local/bin/s6-user-services-install
+    else
+        echo "    no /var/run/s6/services — not an s6 box, skipping registration"
+    fi
+
+    echo
+    echo "    ONE-TIME LOGINS REQUIRED (interactive, not done here):"
+    echo "      t3 connect link --headless   # prints a URL; authorizes this environment"
+    echo "      codex login                  # device-code flow for the native Codex CLI"
+    echo "    Then restart the server so it picks the link up:"
+    echo "      s6-svc -r /var/run/s6/services/t3-serve"
     echo
 fi
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+# t3 is installed by bootstrap.sh --t3 into the nvm prefix, reached via the
+# ~/.local/bin shim. No shim, no server to supervise.
+command -v t3 >/dev/null 2>&1 && [ -d "$HOME/.config/nvm/versions/node" ]
