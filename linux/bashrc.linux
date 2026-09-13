@@ -133,33 +133,34 @@ fi
 # Not in version control. Work tokens, machine-specific paths, etc.
 [[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"
 
-# ── CLIProxyAPI (claudex) ──────────────────────────────────
-# claudex drives GPT-5.6 Sol through a local proxy on :8317. Keep it under
-# tmux for the same reason rc is: no systemd on these boxes, and a
-# foreground process dies with the ssh session. Starts only once the
-# binary exists, so a box that skipped --claudex is unaffected.
-if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 \
-   && [[ -x "$HOME/.local/bin/cli-proxy-api" && -f "$HOME/.config/cliproxyapi/config.yaml" ]]; then
-    tmux has-session -t proxy 2>/dev/null || \
-        tmux new-session -d -s proxy \
-            "exec $HOME/.local/bin/cli-proxy-api -config $HOME/.config/cliproxyapi/config.yaml"
+# ── Supervised services ────────────────────────────────────
+# PID 1 on these pods is s6-svscan over /var/run/s6/services, and /var/run is
+# tmpfs: every service directory is erased on a pod restart while the
+# definitions in ~/.config/s6-user survive. Re-register on each interactive
+# login so the box heals on the first shell after a restart. Idempotent and
+# cheap (a few ms); an already-registered service is left untouched. The log
+# is overwritten rather than appended so it never grows. See linux/README.md,
+# "Boot-time recovery", for the build-script hook that removes the login
+# dependency altogether.
+if [[ $- == *i* ]] && [[ -d /var/run/s6/services && -x "$HOME/.local/bin/s6-user-services-install" ]]; then
+    mkdir -p "$HOME/.local/state"
+    "$HOME/.local/bin/s6-user-services-install" > "$HOME/.local/state/s6-user-install.log" 2>&1
 fi
 
-# ── Claude Remote Control ──────────────────────────────────
-# Keep a detached tmux-hosted rc daemon alive so it survives ssh
-# disconnects and comes back after a pod restart. Idempotent: the
-# has-session check makes re-sourcing a no-op.
+# ── Idle-shutdown sentinel ─────────────────────────────────
+# TrueFoundry stops the pod when it judges it idle. Its own definition, from
+# the deployment form: "The instance is considered active if there is at least
+# one active SSH connection, or if a background job is running using tmux or
+# screen, or if the pod has restarted."
 #
-# CLAUDE_RC_PREFIX names this machine in claude.ai/code session lists;
-# CLAUDE_RC_DIR is the directory rc serves sessions from. Set both per box
-# in ~/.config/bash/local.bash (sourced just above), which bootstrap.sh
-# seeds from --rc-prefix. The prefix defaults to the short hostname.
-if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [[ -x "$HOME/.local/bin/claude" ]]; then
-    tmux has-session -t rc 2>/dev/null || \
-        tmux new-session -d -s rc \
-            "cd ${CLAUDE_RC_DIR:-$HOME/dev/work} && exec $HOME/.local/bin/claude remote-control \
-                --no-create-session-in-dir \
-                --remote-control-session-name-prefix ${CLAUDE_RC_PREFIX:-$(hostname -s)}"
+# An s6 service does not qualify. The judge counts processes that own a
+# controlling terminal and sit in its foreground group, and a supervised
+# service has no terminal -- so t3-serve and cliproxyapi are invisible to it.
+# A tmux-hosted job is the sanctioned answer, and this is the smallest one
+# that exists. Idempotent: the has-session check makes re-sourcing a no-op.
+if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1; then
+    tmux has-session -t keep 2>/dev/null || \
+        tmux new-session -d -s keep 'exec sleep infinity'
 fi
 
 # ── SSH agent ──────────────────────────────────────────────

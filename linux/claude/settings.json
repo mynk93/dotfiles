@@ -13,7 +13,5 @@
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell",
   "switchModelsOnFlag": false,
-  "remoteControlAtStartup": true,
-  "crossSessionInbound": "accept",
   "autoContinueAtUsageLimit": false
 }
