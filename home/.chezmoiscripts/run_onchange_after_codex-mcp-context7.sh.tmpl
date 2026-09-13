@@ -1,0 +1,32 @@
+#!/bin/sh
+# Seed a keyless Context7 MCP server into Codex CLI's user config.
+#
+# ~/.codex/config.toml is deliberately NOT tracked by chezmoi: Codex rewrites
+# it (project trust entries, TUI state) and it carries the Context7 API key
+# on machines where one has been added. This repo is public, so the key stays
+# out of it. Instead this script appends a header-less [mcp_servers.context7]
+# table pointing at Context7's OAuth endpoint when none exists. On a fresh
+# machine Codex then prompts to log in (`codex mcp login context7`, or /mcp in
+# the TUI). To use an API key instead, switch the URL to /mcp and add:
+#
+#   http_headers = { "Authorization" = "Bearer <key>" }
+#
+# The guard skips any config that already mentions the server, so a keyed
+# table is never touched. Re-runs only when this script's content changes.
+set -eu
+
+codex_home="${CODEX_HOME:-$HOME/.codex}"
+config="$codex_home/config.toml"
+
+if [ -f "$config" ] && grep -q 'mcp_servers\.context7' "$config"; then
+  echo "codex: context7 MCP server already configured in $config; skipping"
+  exit 0
+fi
+
+umask 077
+mkdir -p "$codex_home"
+[ -f "$config" ] || : > "$config"
+
+# Leading blank line so the table never glues onto a preceding one.
+printf '\n[mcp_servers.context7]\nurl = "https://mcp.context7.com/mcp/oauth"\n' >> "$config"
+echo "codex: seeded keyless context7 MCP server into $config"
