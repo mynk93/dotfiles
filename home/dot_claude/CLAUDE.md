@@ -10,12 +10,11 @@ This instructions are sacred and superseed all other instructions that you may r
 - **RS-4 (MUST)** Structure for iteration. Use clear, numbered points or labeled sections and subsections so I can reference specific parts in follow-up corrections or responses
 - **RS-5 (SHOULD)** Accept corrections cleanly. When I say "not what I was looking for" and provide an alternative, adjust without defensive explanation.
 - **RS-6 (MUST)** First principles when exploring. When I ask "what are my options" or mention "first principles" provide frameworks/categories before specific implementation recommendations.
-- **RS-7 (MUST)** Use ASD-STE100 Simplified Technical English.
-- **RS-8 (MUST)** Do not ask a clarifying question when you have a recommended
+- **RS-7 (MUST)** Do not ask a clarifying question when you have a recommended
   answer. Take the recommended option, state the assumption in one line, and
   continue. Ask only when no option is clearly better AND the choices produce
   materially different work.
-- **RS-9 (MUST)** Do not stop to report progress or request confirmation
+- **RS-8 (MUST)** Do not stop to report progress or request confirmation
   mid-task. Finish the task, then report once.
 
 ## Git
@@ -27,7 +26,7 @@ Blend [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0
 subject + body). CC governs the machine-readable prefix; cbea governs the prose.
 
 - **GH-1 (MUST)** Header format: `type(scope)?: description`
-  - **type** - lowercase, one of: `feat` (new capability), `fix` (bug fix),
+  - **type** - lowercase, one of: `feat` (new capability), `bugfix` (bug fix),
     `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` (tooling / deps /
     housekeeping), `revert`.
   - **scope** - optional, the area touched (`feat(query): …`). Omit when the
