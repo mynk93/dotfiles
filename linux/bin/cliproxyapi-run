@@ -1,0 +1,25 @@
+#!/usr/bin/with-contenv bash
+# Supervised CLIProxyAPI, the local endpoint claudex talks to.
+#
+# It used to live in a detached tmux session started from bashrc.linux, which
+# tied it to somebody logging in. s6 supervises it now for the same reason it
+# supervises t3-serve: the box should come back without a shell.
+#
+# Loopback only, on :8317. The upstream credential is a device-code login held
+# in ~/.cli-proxy-api and is not managed here.
+export HOME=/home/jovyan
+
+export PATH="$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# The container env carries no CA variables -- sshd injects them from
+# /etc/environment, which a supervised service never reads.
+export SSL_CERT_DIR=/etc/ssl/certs
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+mkdir -p "$HOME/.local/state/cliproxyapi"
+exec >> "$HOME/.local/state/cliproxyapi/cliproxyapi.log" 2>&1
+echo "--- cliproxyapi starting $(date -Is) ---"
+
+exec "$HOME/.local/bin/cli-proxy-api" -config "$HOME/.config/cliproxyapi/config.yaml"

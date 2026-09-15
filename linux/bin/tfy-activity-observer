@@ -1,0 +1,60 @@
+#!/usr/bin/with-contenv bash
+# Sample what TrueFoundry's idle-shutdown judge sees, once a minute.
+#
+# The judge is ~/.truefoundry/tfy-ssh-activity-tracker. Disassembly of its
+# socket filter shows one rule -- LocalAddr.Port == 8888 && state ==
+# ESTABLISHED -- with no exclusion for loopback, for the peer address, or for
+# the owning user. 8888 is this box's sshd port (`Port 8888` in
+# /etc/ssh/sshd_config), so "activity" means inbound ssh sessions and nothing
+# else. A second, lower-priority source counts processes running in the
+# foreground.
+#
+# That is a static reading. This observer is the empirical check on it: it logs
+# the tracker's own verdict next to a socket census taken the same second, so a
+# disagreement shows up as a row where the counts and the description do not
+# line up. Nobody has to be forced off the box to settle it.
+#
+# Deliberately cheap -- two file reads and one loopback HTTP call per minute.
+export HOME=/home/jovyan
+STATE_DIR="$HOME/.local/state/tfy-activity"
+LOG="$STATE_DIR/observer.log"
+MAX_LINES=5000
+SSH_PORT_HEX=22B8          # 8888, this box's sshd port
+LOOPBACK_HEX=0100007F      # 127.0.0.1, little-endian as /proc renders it
+
+mkdir -p "$STATE_DIR"
+[ -f "$LOG" ] || printf '# ts | description | n_inbound_8888 | n_outbound | n_loopback | gauge_sessions | gauge_fg_procs\n' > "$LOG"
+
+samples=0
+while :; do
+    # State 01 is ESTABLISHED. Fields: local_address rem_address st.
+    read -r n_in n_out n_loop <<<"$(
+        cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | awk -v p="$SSH_PORT_HEX" -v lo="$LOOPBACK_HEX" '
+            $4 == "01" {
+                split($2, l, ":"); split($3, r, ":")
+                is_lo = (l[1] == lo || r[1] == lo)
+                if (l[2] == p)   { in_++ }
+                else if (is_lo)  { loop++ }
+                else             { out++ }
+            }
+            END { printf "%d %d %d", in_+0, out+0, loop+0 }'
+    )"
+
+    json="$(curl -s --max-time 3 127.0.0.1:49155/v1/get-activity 2>/dev/null)"
+    desc="$(printf '%s' "$json" | sed -n 's/.*"last_activity_description":"\([^"]*\)".*/\1/p')"
+    [ -n "$desc" ] || desc="(tracker unreachable)"
+
+    metrics="$(curl -s --max-time 3 127.0.0.1:49155/metrics 2>/dev/null)"
+    g_sess="$(printf '%s\n' "$metrics" | awk '/^tfy_ssh_server_active_sessions /{print $2}')"
+    g_proc="$(printf '%s\n' "$metrics" | awk '/^tfy_ssh_server_active_foreground_processes /{print $2}')"
+
+    printf '%s | %s | %s | %s | %s | %s | %s\n' \
+        "$(date -Is)" "$desc" "$n_in" "$n_out" "$n_loop" "${g_sess:--}" "${g_proc:--}" >> "$LOG"
+
+    samples=$((samples + 1))
+    if [ "$samples" -ge 60 ]; then
+        samples=0
+        tail -n "$MAX_LINES" "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+    fi
+    sleep 60
+done
