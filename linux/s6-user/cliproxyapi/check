@@ -1,0 +1,4 @@
+#!/bin/sh
+# Both come from bootstrap.sh --claudex. A box without them has nothing to
+# proxy and no key to proxy it with.
+[ -x "$HOME/.local/bin/cli-proxy-api" ] && [ -f "$HOME/.config/cliproxyapi/config.yaml" ]

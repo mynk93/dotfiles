@@ -1,0 +1,90 @@
+#!/bin/sh
+# Register this box's own long-running services with the container's s6
+# supervisor.
+#
+# There is no systemd in a TrueFoundry pod: PID 1 is s6-svscan, scanning
+# /var/run/s6/services. That path is tmpfs, so every service directory is lost
+# on a pod restart while everything under $HOME survives. This script is the
+# bridge — it rebuilds the scan directory from the durable definitions in
+# ~/.config/s6-user, and ~/.bashrc calls it on login so the box self-heals on
+# the first shell after a restart. For true boot-time recovery the same call
+# belongs in the TrueFoundry build script; see linux/README.md.
+#
+# A service is one directory under ~/.config/s6-user holding `run` and
+# `finish`, mirroring what s6 itself expects. `finish` is not decoration:
+# s6-supervise restarts a dead service instantly, so a service that dies at
+# startup spins at full CPU without one. Every finish here sleeps.
+#
+# Opt-out is a single flag file: ~/.config/s6-user/<name>.disabled. A flagged
+# service is not copied in, and if it is already registered it is stopped in
+# place — s6 cannot forget a service directory without a scan-dir prune, so
+# "stopped" is as far as this goes.
+#
+# A definition may also carry an executable `check`. It runs before
+# registration with ~/.local/bin on PATH, and a non-zero exit skips the service
+# with a note. That is what lets the whole service layer be installed as one
+# unit: a box that ran --claudex but not --t3 has a t3-serve definition whose
+# binary does not exist, and without the check s6 would restart it every five
+# seconds forever.
+#
+# Idempotent by construction: an already-registered service is left exactly as
+# it is, never rewritten. A service somebody stopped by hand should stay
+# stopped, and one that is mid-session should not be disturbed.
+set -e
+
+SRC_DIR="${S6_USER_DIR:-$HOME/.config/s6-user}"
+SCAN_DIR="${S6_SCAN_DIR:-/var/run/s6/services}"
+
+[ -d "$SRC_DIR" ] || { echo "s6-user: no definitions in $SRC_DIR" >&2; exit 0; }
+[ -d "$SCAN_DIR" ] || { echo "s6-user: no scan dir at $SCAN_DIR (not an s6 box?)" >&2; exit 1; }
+
+changed=0
+
+for def in "$SRC_DIR"/*/; do
+    [ -d "$def" ] || continue
+    name="$(basename "$def")"
+    svc="$SCAN_DIR/$name"
+
+    if [ -e "$SRC_DIR/$name.disabled" ]; then
+        if [ -d "$svc" ]; then
+            touch "$svc/down"
+            s6-svc -d "$svc" 2>/dev/null || true
+            echo "  $name: disabled (flag present) — stopped, still registered"
+        else
+            echo "  $name: disabled (flag present) — not registered"
+        fi
+        continue
+    fi
+
+    if [ -d "$svc" ]; then
+        # Already supervised: report and move on, touching nothing. Rewriting
+        # `run` under a live s6-supervise would not take effect until a restart
+        # anyway, and a service someone stopped by hand should stay stopped.
+        echo "  $name: already registered ($(s6-svstat "$svc" 2>/dev/null || echo '?'))"
+        continue
+    fi
+
+    [ -f "$def/run" ] || { echo "  $name: SKIPPED, no run script" >&2; continue; }
+    if [ -x "$def/check" ] && ! PATH="$HOME/.local/bin:$PATH" "$def/check" >/dev/null 2>&1; then
+        echo "  $name: skipped, prerequisite missing (see $def/check)"
+        continue
+    fi
+    mkdir -p "$svc"
+    cp "$def/run" "$svc/run"
+    # A `down` file in the definition means "supervise it, but do not start it"
+    # -- the way to keep a service registered and idle across a pod restart.
+    [ -f "$def/down" ] && cp "$def/down" "$svc/down"
+    if [ -f "$def/finish" ]; then
+        cp "$def/finish" "$svc/finish"
+    else
+        printf '#!/bin/sh\nexec sleep 5\n' > "$svc/finish"
+    fi
+    chmod +x "$svc/run" "$svc/finish"
+    echo "  $name: registered"
+    changed=1
+done
+
+if [ "$changed" = 1 ]; then
+    s6-svscanctl -a "$SCAN_DIR"
+    echo "s6-user: rescanned $SCAN_DIR"
+fi
