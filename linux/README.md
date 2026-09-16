@@ -90,16 +90,20 @@ No credential is copied from the Mac, and none is committed — the macOS
 one-time per box:
 
 ```sh
-aws configure sso
-aws sso login --profile <profile> --use-device-code
+aws configure sso --use-device-code               # once, to write the profile
+aws sso login --profile <profile> --use-device-code   # and whenever the token expires
 ```
 
-`--use-device-code` is the part that matters. Since v2.22 the default is the
-PKCE authorization-code flow, which requires the verification URL to be
-opened on the *same* device that is signing in — there is no browser here, so
-it cannot complete. Device authorization has no such constraint: the box
-prints a code, and you approve it from the Mac or a phone. `aws sso login`
-refreshes an expired token later on the same flow.
+`--use-device-code` is the part that matters, and it is needed on **both**
+commands — the wizard performs the first sign-in itself, so leaving it off
+there fails before you ever reach `aws sso login`. The flag is not
+remembered between runs.
+
+Since v2.22 the default is the PKCE authorization-code flow, which requires
+the verification URL to be opened on the *same* device that is signing in.
+There is no browser here, so it cannot complete. Device authorization has no
+such constraint: the box prints a code and a URL, and you approve it from the
+Mac or a phone.
 
 ### claudex on a remote box
 
