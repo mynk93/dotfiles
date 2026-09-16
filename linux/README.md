@@ -38,6 +38,7 @@ steps are idempotent, so re-running is the upgrade path.
 | Path | From | Notes |
 |---|---|---|
 | `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor |
+| `~/.local/bin/{aws,aws_completer}`, `~/.local/aws-cli/` | `awscli.amazonaws.com` | AWS CLI v2, bundled installer; sign-in is manual, see below |
 | `~/.local/bin/claude` | `claude.ai/install.sh` | `--claude-code` only |
 | `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
@@ -72,6 +73,33 @@ cat ~/.ssh/id_ed25519_github.pub    # add this to github.com/settings/keys
 Generate the key on the box; never copy one between boxes. The clone is
 also what creates `~/dev/work`, which matters because `t3-serve` serves
 sessions from there.
+
+### AWS CLI
+
+Installed by default with the other CLI binaries, but not by
+`install-tools.sh` — AWS ships v2 as a bundled installer behind a zip rather
+than a release asset, and that installer owns its own layout. It goes to
+`~/.local/aws-cli` with the `aws` and `aws_completer` symlinks in
+`~/.local/bin`, which is a `$HOME` install even though these boxes do have
+sudo: only `$HOME` survives a pod restart, so a `/usr/local` install would
+disappear with the rest of the image. Re-running `bootstrap.sh` passes
+`--update` when it finds an existing `aws`, so it is also the upgrade path.
+
+No credential is copied from the Mac, and none is committed — the macOS
+`~/.aws/config` is deliberately unmanaged for the same reason. Signing in is
+one-time per box:
+
+```sh
+aws configure sso
+aws sso login --profile <profile> --use-device-code
+```
+
+`--use-device-code` is the part that matters. Since v2.22 the default is the
+PKCE authorization-code flow, which requires the verification URL to be
+opened on the *same* device that is signing in — there is no browser here, so
+it cannot complete. Device authorization has no such constraint: the box
+prints a code, and you approve it from the Mac or a phone. `aws sso login`
+refreshes an expired token later on the same flow.
 
 ### claudex on a remote box
 
