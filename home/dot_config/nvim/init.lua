@@ -4,8 +4,8 @@
 -- cannot do: programmable folding. Zed's folds are indentation-derived with a
 -- hardcoded `⋯` placeholder, so a wrapped call and a wrapped parameter list
 -- are indistinguishable and a collapsed fold can never show its contents.
--- Neovim exposes both hooks — `foldexpr` (boundaries) and `foldtext`
--- (placeholder) — so both are fixed here.
+-- Neovim exposes both hooks — fold boundaries and the folded placeholder —
+-- so both are fixed here. See reader.folding (nvim-ufo) and reader.foldtext.
 --
 -- Deliberately no LSP, no completion, no formatter. Reading only; editing
 -- happens in Zed. Keep it that way — every plugin added here is a thing that
@@ -27,20 +27,13 @@ o.ignorecase, o.smartcase = true, true
 o.splitright, o.splitbelow = true, true
 o.undofile     = true
 
--- Blank out the fold trailing-dot fill so foldtext controls the whole line.
+-- Blank out the fold trailing-dot fill so the virt-text handler controls the
+-- whole line.
 o.fillchars:append({ fold = " " })
 
 -- ── Folding ────────────────────────────────────────────────────────────────
--- Syntax folds, not indent folds: a wrapped parameter list is not a fold,
--- a function body is.
-o.foldmethod = "expr"
-o.foldexpr   = "v:lua.vim.treesitter.foldexpr()"
-o.foldtext   = "v:lua.require'reader.foldtext'.render()"
-
--- Open at "definitions visible, bodies' internals folded" — the state that
--- took a keystroke-per-function to reach elsewhere.
-o.foldlevelstart = 1
-o.foldenable     = true
+-- Owned by reader.folding (nvim-ufo). Only the fill char stays here, because
+-- it is a display detail rather than a folding decision.
 
 -- ── Plugins (vim.pack, built into 0.12 — no bootstrap script) ──────────────
 vim.pack.add({
@@ -51,6 +44,10 @@ vim.pack.add({
   { src = "https://github.com/nvim-lualine/lualine.nvim" },         -- statusline
   { src = "https://github.com/Bekaboo/dropbar.nvim" },              -- breadcrumbs winbar
   { src = "https://github.com/folke/snacks.nvim" },                 -- indent / dim / dashboard
+  { src = "https://github.com/kevinhwang91/promise-async" },        -- ufo dependency
+  { src = "https://github.com/kevinhwang91/nvim-ufo" },             -- folding engine
+  { src = "https://github.com/luukvbaal/statuscol.nvim" },          -- fold column + signs
+  { src = "https://github.com/folke/flash.nvim" },                  -- cursor jumps
 })
 
 require("fzf-lua").setup({
@@ -61,6 +58,7 @@ require("gitsigns").setup({ current_line_blame = false })
 
 require("reader.ui")
 require("reader.lsp")
+require("reader.folding")
 
 -- nvim-treesitter's main branch does not start parsing on its own, so without
 -- this the foldexpr has no tree to read and every fold level comes back 0.
@@ -71,11 +69,9 @@ vim.api.nvim_create_autocmd("FileType", {
     if not lang then
       return
     end
-    if not pcall(vim.treesitter.start, ev.buf, lang) then
-      -- No parser for this language: fall back to indent folds rather than
-      -- leaving the buffer with an expr that always returns 0.
-      vim.api.nvim_set_option_value("foldmethod", "indent", { scope = "local" })
-    end
+    -- No parser is not an error here: ufo's provider chain already falls back
+    -- to indent folds, so do not also force foldmethod and fight it.
+    pcall(vim.treesitter.start, ev.buf, lang)
   end,
 })
 
@@ -103,10 +99,12 @@ map("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end,  { desc = "nex
 map("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "prev diagnostic" })
 map("n", "<leader>d", vim.diagnostic.open_float, { desc = "show diagnostic" })
 
--- Folding.
-map("n", "<leader>z", function()                   -- back to the reading state
-  vim.opt_local.foldlevel = 1
-end, { desc = "fold: collapse to definitions" })
+-- Folding keymaps live in reader.folding, next to the ufo setup they drive.
+
+-- Cursor jumps: `s` then two characters puts the cursor anywhere on screen.
+-- Replaces the search-then-n dance for short-range movement.
+map({ "n", "x", "o" }, "s", function() require("flash").jump() end, { desc = "jump to location" })
+map({ "n", "x", "o" }, "S", function() require("flash").treesitter() end, { desc = "select syntax node" })
 
 -- Jumplist: <C-o> back, <C-i> forward. Native, listed only as documentation —
 -- this is the equivalent of zed's ctrl-- / pane::GoBack.

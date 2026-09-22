@@ -42,7 +42,7 @@ require("snacks").setup({
   indent = { enabled = true, animate = { enabled = false } },
   scroll = { enabled = false },          -- smooth scroll fights trackpad feel
   dim = { enabled = true },              -- inactive splits recede
-  statuscolumn = { enabled = true },     -- fold column + signs, laid out sanely
+  statuscolumn = { enabled = false },    -- statuscol.nvim owns this; see below
   dashboard = {
     enabled = true,
     preset = {
@@ -56,6 +56,22 @@ require("snacks").setup({
   },
   bigfile = { enabled = true },          -- disable TS/LSP on huge files
   quickfile = { enabled = true },
+})
+
+-- ── Status column ──────────────────────────────────────────────────────────
+-- The gutter: fold markers, signs, line numbers. statuscol rather than the
+-- snacks equivalent because its fold segment is click-aware and understands
+-- ufo's fold state, which is what we actually fold with.
+local builtin = require("statuscol.builtin")
+require("statuscol").setup({
+  relculright = true,
+  segments = {
+    { sign = { name = { "Diagnostic" }, maxwidth = 1, auto = true } },
+    { text = { builtin.lnumfunc, " " }, click = "v:lua.ScLa" },
+    { sign = { namespace = { "gitsigns" }, maxwidth = 1, colwidth = 1, auto = false },
+      click = "v:lua.ScSa" },
+    { text = { builtin.foldfunc, " " }, click = "v:lua.ScFa" },
+  },
 })
 
 -- ── Borders ────────────────────────────────────────────────────────────────
