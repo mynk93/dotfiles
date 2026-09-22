@@ -27,6 +27,13 @@
 	line-numbers = true
 	side-by-side = false
 	light = false
+[alias]
+	# Structural (AST) diff via difftastic. Deliberately an alias rather
+	# than diff.external: difft output is for human eyes only — it is not
+	# a valid patch, so a global setting would break `git add -p`,
+	# `git apply`, and delta.
+	dft = -c diff.external=difft diff
+	dfts = -c diff.external=difft show
 [merge]
 	conflictstyle = diff3
 [diff]

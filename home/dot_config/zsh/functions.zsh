@@ -19,11 +19,21 @@ y() {
 # diffs from the merge-base with the PR's base branch — same view as the
 # "Files changed" tab on github.com.
 #
-# Usage: prdiff <pr-number>
+# With -s/--semantic the diff is computed structurally by difftastic (AST
+# comparison) instead of line-by-line — reformats and moved blocks stop
+# showing up as changes.
+#
+# Usage: prdiff [-s] <pr-number>
 prdiff() {
+    local semantic=0
+    if [[ "$1" == "-s" || "$1" == "--semantic" ]]; then
+        semantic=1
+        shift
+    fi
+
     local pr="$1"
     if [[ -z "$pr" ]]; then
-        echo "usage: prdiff <pr-number>" >&2
+        echo "usage: prdiff [-s|--semantic] <pr-number>" >&2
         return 1
     fi
 
@@ -35,5 +45,13 @@ prdiff() {
     local mb
     mb=$(git merge-base "origin/$base" "refs/prdiff/pr-$pr") || return 1
 
-    hunk diff "$mb..refs/prdiff/pr-$pr"
+    if (( semantic )); then
+        if ! command -v difft >/dev/null; then
+            echo "prdiff: difft not found (brew install difftastic)" >&2
+            return 1
+        fi
+        git -c diff.external=difft diff "$mb..refs/prdiff/pr-$pr"
+    else
+        hunk diff "$mb..refs/prdiff/pr-$pr"
+    fi
 }
