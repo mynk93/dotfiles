@@ -24,6 +24,11 @@ export GPG_TTY=$(tty)
 # the buffer. Without it, zed forks immediately and the parent sees an
 # empty file. Git's core.editor in dot_gitconfig.tmpl matches.
 export EDITOR='nvim'
+
+# mermaid-cli drives a headless browser. Its default is a puppeteer-managed
+# Chrome that must be downloaded separately and is pinned to the mmdc build,
+# so it breaks on any version skew. Point it at the installed Chrome.
+export PUPPETEER_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 export VISUAL="$EDITOR"
 
 # Suppress Python venv activate-script (venv) PROMPT prefix — the prompt
