@@ -37,4 +37,16 @@
 [merge]
 	conflictstyle = diff3
 [diff]
-	colorMoved = default
+	# zebra alternates shading between moved blocks, so a block that moved
+	# reads as moved instead of as a delete plus an unrelated add. delta
+	# renders these via --inspect-raw-lines, which is on by default.
+	colorMoved = zebra
+	# A block that moved into or out of an if/try changes indentation but
+	# not content; without this it fails the move match and shows as a
+	# rewrite.
+	colorMovedWS = allow-indentation-change
+	# histogram beats myers at keeping moved/reordered hunks aligned.
+	algorithm = histogram
+	# Detect renames and copies, the file-level half of what a semantic
+	# diff gives you.
+	renames = copies
