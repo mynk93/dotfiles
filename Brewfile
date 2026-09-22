@@ -65,6 +65,12 @@ brew "xh"         # HTTP client (Postman/Insomnia replacement)
 brew "jless"      # interactive JSON viewer
 brew "glow"       # markdown renderer
 brew "chafa"      # image-in-terminal preview
+brew "imagemagick" # image.nvim's magick_cli processor, for inline images
+                  # in nvim over the kitty graphics protocol
+brew "mermaid-cli" # `mmdc`; diagram.nvim renders ```mermaid fences with
+                  # it. Needs a browser — PUPPETEER_EXECUTABLE_PATH in
+                  # dot_zshenv points it at the installed Chrome rather
+                  # than puppeteer's own pinned download
 brew "mpv"        # audio/video player (wired into yazi opener)
 brew "moor"       # Rust-based less replacement (set as $PAGER) with
                   # native mouse/trackpad scroll support
