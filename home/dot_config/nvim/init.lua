@@ -48,6 +48,7 @@ vim.pack.add({
   { src = "https://github.com/kevinhwang91/nvim-ufo" },             -- folding engine
   { src = "https://github.com/luukvbaal/statuscol.nvim" },          -- fold column + signs
   { src = "https://github.com/folke/flash.nvim" },                  -- cursor jumps
+  { src = "https://github.com/MeanderingProgrammer/render-markdown.nvim" }, -- in-buffer md
 })
 
 require("fzf-lua").setup({
@@ -59,6 +60,7 @@ require("gitsigns").setup({ current_line_blame = false })
 require("reader.ui")
 require("reader.lsp")
 require("reader.folding")
+require("reader.markdown")
 
 -- nvim-treesitter's main branch does not start parsing on its own, so without
 -- this the foldexpr has no tree to read and every fold level comes back 0.
