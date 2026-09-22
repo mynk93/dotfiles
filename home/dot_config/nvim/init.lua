@@ -47,13 +47,19 @@ vim.pack.add({
   { src = "https://github.com/nvim-treesitter/nvim-treesitter", version = "main" },
   { src = "https://github.com/ibhagwan/fzf-lua" },                  -- files / grep / symbols
   { src = "https://github.com/lewis6991/gitsigns.nvim" },           -- gutter + blame
-  { src = "https://github.com/folke/tokyonight.nvim" },             -- matches the zed theme
+  { src = "https://github.com/Mofiqul/dracula.nvim" },              -- colorscheme
+  { src = "https://github.com/nvim-lualine/lualine.nvim" },         -- statusline
+  { src = "https://github.com/Bekaboo/dropbar.nvim" },              -- breadcrumbs winbar
+  { src = "https://github.com/folke/snacks.nvim" },                 -- indent / dim / dashboard
 })
 
-require("fzf-lua").setup({ "default", winopts = { preview = { layout = "vertical" } } })
+require("fzf-lua").setup({
+  "default",
+  winopts = { preview = { layout = "vertical" }, border = "rounded" },
+})
 require("gitsigns").setup({ current_line_blame = false })
-vim.cmd.colorscheme("tokyonight-storm")
 
+require("reader.ui")
 require("reader.lsp")
 
 -- nvim-treesitter's main branch does not start parsing on its own, so without
