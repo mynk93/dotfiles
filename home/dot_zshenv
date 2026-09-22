@@ -23,7 +23,7 @@ export GPG_TTY=$(tty)
 # (git commit, crontab -e, gh pr create, visudo) block until zed closes
 # the buffer. Without it, zed forks immediately and the parent sees an
 # empty file. Git's core.editor in dot_gitconfig.tmpl matches.
-export EDITOR='zed --wait'
+export EDITOR='nvim'
 export VISUAL="$EDITOR"
 
 # Suppress Python venv activate-script (venv) PROMPT prefix — the prompt
