@@ -72,8 +72,9 @@ brew "moor"       # Rust-based less replacement (set as $PAGER) with
 # GUI apps this repo carries config for. Declared not as preference but
 # because the config deploys either way: without the app it lands with
 # nothing to read it, and without the font the prompt renders as tofu.
-cask "zed"                      # $EDITOR / $VISUAL in dot_zshenv and git
-                                # core.editor; settings in dot_config/zed
+cask "zed"                      # kept as a GUI fallback only; nvim is now
+                                # $EDITOR/$VISUAL and git core.editor.
+                                # Settings still tracked in dot_config/zed
 cask "cmux"                     # settings in dot_config/cmux
 cask "karabiner-elements"       # settings in dot_config/private_karabiner
 cask "font-fira-code-nerd-font" # glyphs both the mynk.zsh prompt and zed's
