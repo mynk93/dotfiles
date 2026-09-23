@@ -56,7 +56,45 @@ require("snacks").setup({
   },
   bigfile = { enabled = true },          -- disable TS/LSP on huge files
   quickfile = { enabled = true },
+  explorer = { enabled = true },         -- project tree; see keymaps below
+  picker = {
+    enabled = true,
+    sources = {
+      explorer = {
+        auto_close = false,              -- keep the tree open while reading
+        layout = { preset = "sidebar", preview = false },
+      },
+    },
+  },
 })
+
+-- ── Project navigation ─────────────────────────────────────────────────────
+-- `nvim .` or `nvim <dir>` opens the explorer on that directory rather than
+-- netrw, so a directory argument behaves like opening a project.
+vim.api.nvim_create_autocmd("VimEnter", {
+  desc = "reader: open a directory argument as a project tree",
+  callback = function()
+    local arg = vim.fn.argv(0)
+    if type(arg) == "string" and arg ~= "" and vim.fn.isdirectory(arg) == 1 then
+      vim.cmd.cd(arg)
+      vim.cmd.bdelete()
+      require("snacks").explorer()
+    end
+  end,
+})
+
+local map = vim.keymap.set
+map("n", "<leader>e", function() require("snacks").explorer() end,
+  { desc = "project: toggle file tree" })
+map("n", "<leader>E", function() require("snacks").explorer.reveal() end,
+  { desc = "project: reveal current file in tree" })
+
+-- Move between open files without the picker.
+map("n", "]b", "<cmd>bnext<cr>",     { desc = "buffer: next" })
+map("n", "[b", "<cmd>bprevious<cr>", { desc = "buffer: previous" })
+map("n", "<leader><leader>", "<cmd>buffer#<cr>", { desc = "buffer: last used" })
+map("n", "<leader>x", function() require("snacks").bufdelete() end,
+  { desc = "buffer: close, keep the split" })
 
 -- ── Status column ──────────────────────────────────────────────────────────
 -- The gutter: fold markers, signs, line numbers. statuscol rather than the
