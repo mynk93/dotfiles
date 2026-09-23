@@ -33,4 +33,12 @@ mkdir -p "$HOME/.local/state/t3"
 exec >> "$HOME/.local/state/t3/serve.log" 2>&1
 echo "--- t3-serve starting $(date -Is) [args: $T3_SERVE_ARGS] ---"
 cd "$HOME/dev/work" || exit 1
-exec t3 serve $T3_SERVE_ARGS
+
+# The npm `t3` is a launcher: bin/t3.js spawnSyncs the platform binary and
+# forwards no signals. `s6-svc -r` TERMs the launcher, the binary is
+# reparented to init and keeps serving -- holding :3773 and its relay tunnel
+# while the replacement comes up on a random port. Exec the binary itself so
+# s6 supervises the real server. A build without the platform package (0.0.40
+# and earlier were plain node) falls back to the launcher.
+T3_BIN="$(ls -d "$NVM_BIN"/../lib/node_modules/t3/node_modules/@t3code/t3-linux-*/t3 2>/dev/null | head -1)"
+exec "${T3_BIN:-t3}" serve $T3_SERVE_ARGS
