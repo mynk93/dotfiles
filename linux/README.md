@@ -230,6 +230,14 @@ update-t3            # channel: $T3_CHANNEL, else whatever is installed
 update-t3 nightly    # switch channel
 ```
 
+From the laptop, the zsh `update-t3` in `functions.zsh` runs the same thing
+over ssh, so an update does not need a shell on the box:
+
+```sh
+update-t3 <ssh-host>            # same channel rules, decided on the box
+update-t3 <ssh-host> nightly
+```
+
 That is a function in `bashrc.linux` wrapping the two commands below, which
 have to run together.
 

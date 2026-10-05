@@ -168,8 +168,7 @@ update-t3() {
     fi
     echo "update-t3: installing t3@${channel}" \
         && npm i -g --allow-scripts=msgpackr-extract,node-pty "t3@${channel}" \
-        && s6-svc -r /var/run/s6/services/t3-serve \
-        && sleep 3 \
+        && s6-svc -wr -T 30000 -r /var/run/s6/services/t3-serve \
         && s6-svstat /var/run/s6/services/t3-serve \
         && t3 --version
 }
