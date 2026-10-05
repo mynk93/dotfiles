@@ -37,3 +37,20 @@ prdiff() {
 
     hunk diff "$mb..refs/prdiff/pr-$pr"
 }
+
+# Update the T3 Code server on a remote Linux box and restart its s6 service.
+# Runs the box's own `update-t3` (linux/bashrc.linux), so the channel logic
+# lives in one place: with no second argument the box picks $T3_CHANNEL from
+# its local.bash, else whatever build is already installed there. `bash -ic`
+# because update-t3 is a function from the box's interactive bashrc; `-t` so
+# npm gets a terminal.
+#
+# Usage: update-t3 <ssh-host> [latest|nightly|preview|<exact-version>]
+update-t3() {
+    local host="$1" channel="$2"
+    if [[ -z "$host" ]]; then
+        echo "usage: update-t3 <ssh-host> [latest|nightly|preview|<exact-version>]" >&2
+        return 1
+    fi
+    ssh -t "$host" "bash -ic 'update-t3 $channel'"
+}
