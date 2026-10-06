@@ -53,6 +53,12 @@ require("snacks").setup({
         { icon = " ", key = "q", desc = "Quit",         action = ":qa" },
       },
     },
+    -- Default sections minus "startup": it reads lazy.nvim's stats, and
+    -- plugins here come from vim.pack, so require("lazy.stats") throws.
+    sections = {
+      { section = "header" },
+      { section = "keys", gap = 1, padding = 1 },
+    },
   },
   bigfile = { enabled = true },          -- disable TS/LSP on huge files
   quickfile = { enabled = true },
