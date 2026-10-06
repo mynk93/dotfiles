@@ -5,24 +5,24 @@ description: "Use for pr-sanity, cold-reading a PR, checking for AI smell, or a 
 
 # pr-sanity
 
-Two fresh-context Sonnet readers inspect the committed PR bundle. The cold reader narrates its understanding and records stumbles; the lint reader applies a fixed taxonomy. The main agent judges their observations with the authoring session's context and applies approved fixes.
+Two Sonnet sessions with no authoring history inspect the committed PR bundle. The cold reader narrates its understanding and records stumbles; the lint reader applies a fixed taxonomy. The main agent judges their observations with the authoring session's context and applies approved fixes.
 
-## Boundaries
+## Review rules
 
 - Exactly two readers, running Sonnet at high effort. One corrective retry per reader at most; no additional agents or automatic verification loop.
-- Coldness is the product. Send no design summary, session history, or reader findings to either initial reader. Each still inherits the repo's CLAUDE.md and hooks.
+- Keep the initial readers independent. Their prompts contain no design summary, session history, or findings from the other reader. Each still inherits the repo's CLAUDE.md and hooks.
 - Reader prompts and output contracts live in `prompts/cold.md` and `prompts/lint.md`. The helper loads them in place; neither prompt is copied into the worktree. Keep the lint taxonomy out of the cold reader's prompt.
 - Legibility and placement only. Design, test adequacy, performance, security, and commit messages belong to code review.
 
 ## 1. Prepare
 
-Run the maintained helper rather than composing setup commands or reimplementing its transformations:
+Use the shared helper for setup and process handling:
 
 ```bash
 python3 ~/.claude/scripts/review_workflow.py --skill pr-sanity --repo "$PWD" prepare
 ```
 
-It resolves the PR base, guards the merge-base, creates `.worktrees/pr-sanity` at committed HEAD, fetches closing issues, and writes the body, issue text, manifest, full function-context diff, and bounded diff chunks. It emits paths and preparation notes, not artifact contents. Read the notes; a missing problem source must appear in triage. If the repo provides `scripts/setup-worktree.sh`, follow its documented invocation before launch. Otherwise the helper links ignored `.venv` and `.env*` runtime files from the primary checkout.
+It resolves the PR base, guards the merge-base, creates `.worktrees/pr-sanity` at committed HEAD, fetches closing issues, and writes the body, issue text, manifest, full diff with function context, and chunks sized for complete reads. It emits paths and preparation notes, not artifact contents. Read the notes; a missing problem source must appear in triage. If the repo provides `scripts/setup-worktree.sh`, follow its documented invocation before launch. Otherwise the helper links ignored `.venv` and `.env*` runtime files from the primary checkout.
 
 Pre-PR preparation uses `.github/PR_BODY.md`, then `PR_BODY.md`; a missing body stops the run. An existing PR supplies its body and base, including a stacked PR's parent branch. If a committed plan is the problem source, pass `--plan <repo-relative-path>`. An empty diff still allows a body-and-problem-source review.
 
@@ -50,11 +50,11 @@ Completion requires the reviewer processes to exit, not just output files to app
 python3 ~/.claude/scripts/review_workflow.py --skill pr-sanity --repo "$PWD" collect
 ```
 
-The helper validates the result envelopes and JSON structure, records usage, and returns the original report paths and sizes. It neither prints nor rewrites the reports. It accepts the contract's clearly empty missing lists/coverage notes; observations and cold narration remain matters for judgement.
+The helper checks the final CLI results and JSON structure, records usage, and returns paths and sizes for the original reports. It leaves their contents unchanged. It accepts missing lists or coverage notes when they clearly mean empty values. The main agent judges whether findings and narration are substantive.
 
-Read both complete original JSON reports using [the artifact-reading procedure](../../references/review-artifacts.md). Preserve narration, all findings, full quotes, clean checks, and coverage notes. Validation and reading are separate operations; use the returned paths directly rather than generating a formatter or summary script.
+Read both complete original JSON reports using [the report-reading instructions](../../references/review-artifacts.md). Preserve narration, all findings, full quotes, clean checks, and coverage notes. Validation and reading are separate operations; use the returned paths directly rather than generating a formatter or summary script.
 
-If an output is genuinely malformed or degenerate, write a surgical correction to a file and run:
+If an output is malformed or lacks substantive content, write a correction naming the problem and run:
 
 ```bash
 python3 ~/.claude/scripts/review_workflow.py --skill pr-sanity --repo "$PWD" retry --reader cold --prompt /absolute/path/to/correction.txt
@@ -66,8 +66,8 @@ Choose `cold` or `lint`. The helper appends the correction to that reader's orig
 
 1. Merge overlapping observations on the same artifact/file/line range, preserving both evidences. Map cold stumbles onto the taxonomy by judgement.
 2. Compare the full cold narration with actual intent and the problem source. A misreading can reveal an under-explained body even when no stumble names it.
-3. Judge each finding genuine or spurious using session context. Consider its home layer: permanent repo, review-time PR, or ephemeral session. Choose the fix for each accepted finding.
-4. Present accepted findings numbered as `N. [check] file:lines — "quote…" → intended fix`. Give a concise reason for each rejection, plus clean checks, coverage gaps, and missing problem sources.
+3. Judge each finding genuine or spurious using session context. Decide whether the content belongs in the repo, the PR discussion, or the working conversation. Choose the fix for each accepted finding.
+4. Present accepted findings numbered as `N. [check] file:lines — "quote..." → intended fix`. Give a concise reason for each rejection, plus clean checks, coverage gaps, and missing problem sources.
 5. Obtain approval before applying the proposed fixes unless that approval already exists in the session. Apply in the primary checkout or PR body, keeping GitHub prose unwrapped. Leave checkout changes uncommitted.
 
 ## 5. Cleanup
@@ -78,4 +78,4 @@ python3 ~/.claude/scripts/review_workflow.py --skill pr-sanity --repo "$PWD" cle
 
 The helper closes the reader panes and removes the worktree after confirming process completion. `--archive <new-directory>` preserves original reports and usage before removal. `--abort` stops an unfinished run before cleanup. For failures or timeouts, consult [the lifecycle diagnostics](../../references/review-artifacts.md#lifecycle-diagnostics).
 
-This is a single-shot pass. A fresh pass after committing fixes is a new invocation, not an automatic loop.
+The pass ends after approved fixes. Start a new invocation to review them after committing.
