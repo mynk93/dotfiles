@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Install the tree-sitter parsers the nvim reader config needs.
+#
+# dot_config/nvim hands folding to vim.treesitter.foldexpr, which returns 0 for
+# every line when the language has no parser — folds silently stop working
+# rather than erroring. nvim-treesitter's main branch compiles parsers via the
+# tree-sitter CLI (declared in the Brewfile), so this runs after brew bundle.
+#
+# Parsers land in ~/.local/share/nvim/site/parser/ and are regenerable, so
+# they are not tracked by chezmoi.
+
+set -euo pipefail
+
+command -v nvim >/dev/null || { echo "[nvim-parsers] nvim not installed, skipping"; exit 0; }
+command -v tree-sitter >/dev/null || { echo "[nvim-parsers] tree-sitter CLI missing, skipping"; exit 0; }
+
+LANGS="python lua bash json yaml markdown toml"
+echo "[nvim-parsers] installing: ${LANGS}"
+
+nvim --headless -c "lua
+local ok, ts = pcall(require, 'nvim-treesitter')
+if not ok then
+  io.write('[nvim-parsers] nvim-treesitter not present yet; open nvim once and re-run\n')
+  vim.cmd('qa!')
+  return
+end
+local done = false
+ts.install({$(printf "'%s'," ${LANGS} | sed 's/,$//')}):await(function() done = true end)
+vim.wait(300000, function() return done end, 200)
+" -c 'qa!'
+
+echo "[nvim-parsers] done"

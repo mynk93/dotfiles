@@ -22,6 +22,12 @@ brew "fd"         # find
 brew "ripgrep"    # grep
 brew "btop"       # top / htop
 
+# Documentation
+brew "tealdeer"   # `tldr` client (Rust) — example-first man pages. The page
+                  # cache is NOT bundled with the formula; the
+                  # run_once_after_tldr-cache script seeds it on a fresh
+                  # machine, and `tldr --update` refreshes it later.
+
 # Shell integrations (sourced in dot_config/zsh/dot_zshrc)
 brew "fzf"        # fuzzy finder (Ctrl-R, Ctrl-T, Alt-C)
 brew "zoxide"     # smart cd (z, zi)
@@ -31,6 +37,10 @@ brew "jq"         # dot_claude/scripts/context-bar.sh parses the statusline
 
 # Git
 brew "git-delta"  # syntax-highlighted git diffs
+brew "difftastic" # structural (tree-sitter) diff; `prdiff -s` and
+                  # `git dft` route through it. Complements delta
+                  # rather than replacing it: delta styles a line
+                  # diff, difft computes an AST one
 brew "lazygit"    # git TUI (alias: lzh)
 brew "gh"         # GitHub CLI; the prdiff function in functions.zsh calls it
 brew "gnupg"      # dot_gitconfig.tmpl sets gpgsign = true whenever a
@@ -43,10 +53,24 @@ brew "lazydocker" # docker TUI (alias: lzd)
 
 # Terminal-first replacements for GUI departures
 brew "yazi"       # file manager TUI
+brew "neovim"     # code *reader*, not the $EDITOR (that stays zed).
+brew "tree-sitter-cli" # nvim-treesitter's main branch shells out to this
+                  # to compile parsers; without it every `install()`
+                  # fails with ENOENT and folding silently degrades
+                  # Carries the tree-sitter folding config in
+                  # dot_config/nvim that zed structurally cannot do:
+                  # syntax folds, relative fold levels (zm/zr), and
+                  # a custom foldtext that surfaces slog event names
 brew "xh"         # HTTP client (Postman/Insomnia replacement)
 brew "jless"      # interactive JSON viewer
 brew "glow"       # markdown renderer
 brew "chafa"      # image-in-terminal preview
+brew "imagemagick" # image.nvim's magick_cli processor, for inline images
+                  # in nvim over the kitty graphics protocol
+brew "mermaid-cli" # `mmdc`; diagram.nvim renders ```mermaid fences with
+                  # it. Needs a browser — PUPPETEER_EXECUTABLE_PATH in
+                  # dot_zshenv points it at the installed Chrome rather
+                  # than puppeteer's own pinned download
 brew "mpv"        # audio/video player (wired into yazi opener)
 brew "moor"       # Rust-based less replacement (set as $PAGER) with
                   # native mouse/trackpad scroll support
@@ -54,8 +78,9 @@ brew "moor"       # Rust-based less replacement (set as $PAGER) with
 # GUI apps this repo carries config for. Declared not as preference but
 # because the config deploys either way: without the app it lands with
 # nothing to read it, and without the font the prompt renders as tofu.
-cask "zed"                      # $EDITOR / $VISUAL in dot_zshenv and git
-                                # core.editor; settings in dot_config/zed
+cask "zed"                      # kept as a GUI fallback only; nvim is now
+                                # $EDITOR/$VISUAL and git core.editor.
+                                # Settings still tracked in dot_config/zed
 cask "cmux"                     # settings in dot_config/cmux
 cask "karabiner-elements"       # settings in dot_config/private_karabiner
 cask "font-fira-code-nerd-font" # glyphs both the mynk.zsh prompt and zed's

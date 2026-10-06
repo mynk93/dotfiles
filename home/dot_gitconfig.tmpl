@@ -18,7 +18,7 @@
 	gpgsign = true
 {{- end }}
 [core]
-	editor = zed --wait
+	editor = nvim
 	pager = delta
 [interactive]
 	diffFilter = delta --color-only
@@ -27,7 +27,26 @@
 	line-numbers = true
 	side-by-side = false
 	light = false
+[alias]
+	# Structural (AST) diff via difftastic. Deliberately an alias rather
+	# than diff.external: difft output is for human eyes only — it is not
+	# a valid patch, so a global setting would break `git add -p`,
+	# `git apply`, and delta.
+	dft = -c diff.external=difft diff
+	dfts = -c diff.external=difft show
 [merge]
 	conflictstyle = diff3
 [diff]
-	colorMoved = default
+	# zebra alternates shading between moved blocks, so a block that moved
+	# reads as moved instead of as a delete plus an unrelated add. delta
+	# renders these via --inspect-raw-lines, which is on by default.
+	colorMoved = zebra
+	# A block that moved into or out of an if/try changes indentation but
+	# not content; without this it fails the move match and shows as a
+	# rewrite.
+	colorMovedWS = allow-indentation-change
+	# histogram beats myers at keeping moved/reordered hunks aligned.
+	algorithm = histogram
+	# Detect renames and copies, the file-level half of what a semantic
+	# diff gives you.
+	renames = copies
