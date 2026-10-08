@@ -1,0 +1,49 @@
+// LikeC4 model for the elih context views.
+// Export: npx likec4 export png -o elih/out/views elih
+// Site:   npx likec4 build -o elih/out/site elih
+
+specification {
+  element system
+  element service
+  element store {
+    style { shape storage }
+  }
+  element external {
+    style { color muted }
+  }
+  tag new
+  tag legacy
+}
+
+model {
+  app = system 'Existing service' {
+    description 'Where the feature hooks in'
+  }
+  worker = service 'New deployable' {
+    #new
+    description 'What this feature adds'
+  }
+  db = store 'Primary store'
+  ext = external 'External dependency'
+
+  app -> db 'writes'
+  app -> worker 'hands work to'
+  worker -> db 'reads and writes'
+  worker -> ext 'calls'
+}
+
+views {
+  // feature.context_view: context
+  view context {
+    title 'Who talks to whom'
+    include *
+    style worker { color primary }
+    style element.tag = #legacy { color muted }
+  }
+
+  // chunks[].context_view: <chunk-id>
+  view first-chunk of worker {
+    title 'First chunk: where it sits'
+    include *, -> worker ->
+  }
+}

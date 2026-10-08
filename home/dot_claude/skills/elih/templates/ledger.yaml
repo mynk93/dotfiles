@@ -1,0 +1,53 @@
+# ELIH ledger. The board is generated from this file and nothing else.
+# Quote any value containing " #" (PR/issue refs start a YAML comment otherwise).
+# Schema and states: the elih skill's reference/ledger-schema.md
+
+feature:
+  name: "{{NAME}}"
+  slug: "{{SLUG}}"
+  goal: >
+    One paragraph. What moves from where to where, and what the first release is.
+  done_when:
+    - A checkable condition
+    - Another
+  artifact_to_review: "https://github.com/ORG/REPO/pull/N"
+  branch: "feature/{{SLUG}}"
+  head: "0000000"
+  epic: ""
+  status_date: "{{TODAY}}"
+  last_ack: null
+  autonomy: normal
+  context_view: context        # LikeC4 view id in model.c4; omit to use board.md's Context section
+
+metaphor:
+  chosen: ""
+  rationale: ""
+  alternatives_considered: []
+
+chunks:
+  - id: first-chunk
+    name: First chunk
+    one_liner: ""
+    stage: built
+    stage_note: "not built yet"
+    risk: medium
+    risk_why: ""
+    paths: []
+    size: ""
+    review_order: 1
+    context_view: first-chunk   # LikeC4 view id; omit to skip the "where it sits" view
+
+pillars:
+  - id: P1
+    statement: ""
+    state: needs-you
+    evidence: ""
+    chunk: first-chunk
+
+decisions: []
+
+blockers: []
+
+changelog:
+  - date: "{{TODAY}}"
+    what: "elih kicked off"
