@@ -1,0 +1,285 @@
+# ELIH ledger: the single source the board is generated from.
+# Rules: no new chunk, id namespace, doc or branch without a row here first.
+# States for decisions: assumed | recommended | approved | rejected | superseded
+# States for pillars:   verified | assumed | needs-you | invalidated
+
+feature:
+  name: Post-call event generation
+  slug: post-call-event-gen
+  goal: >
+    Move event detection and disposition out of end_call into a worker that runs
+    after the room closes, with retries, replay and one versioned result per call.
+    First release: the worker runs in shadow in prod beside legacy, with a tested
+    per-tenant switch to go live later.
+  done_when:
+    - Worker runs in prod shadow for a first proAgent voice tenant, then every Prodigal Cloud voice tenant
+    - Every served call reaches done or failed; stuck pending records are counted daily
+    - Shadow report covers one full weekday per served tenant
+    - Legacy fields and every customer surface are byte-identical for served tenants
+  artifact_to_review: "https://github.com/prodigal-tech/agent-orchestrator/pull/1074"
+  branch: feature/post-call-sync-main
+  head: 5e9862c5
+  epic: "https://github.com/prodigal-tech/agent-orchestrator/issues/822"
+  status_date: 2026-10-08
+  last_ack: null   # set by /elih ack; null means never acknowledged
+
+metaphor:
+  chosen: Post office
+  rationale: >
+    A call ending is a letter being posted. end_call stamps it, a conveyor carries
+    it, a sorting desk reads it against a field guide, a scorecard checks the
+    sorter against the old clerk, and one switch decides whose sort the customer
+    receives.
+  alternatives_considered:
+    - Airport baggage (check-in, carousel, screening, customs)
+    - Hospital triage (admission, queue, lab, chart, discharge)
+
+# Stages: built -> tested -> reviewed -> merged -> deployed
+chunks:
+  - id: stamp
+    name: Stamp
+    one_liner: end_call stamps the record pending and drops a pointer on the queue, only for served tenants
+    stage: reviewed
+    stage_note: "fable + pr-sanity on former #1077; live-switch half (#1095) not yet reviewed"
+    risk: high
+    risk_why: Only change on the live call path. With both tenant lists empty it must write exactly what main writes
+    paths:
+      - agent_orchestrator/service/call_service.py
+      - agent_orchestrator/service/post_call_producer.py
+      - agent_orchestrator/config.py
+      - agent_orchestrator/schemas/post_call.py
+      - agent_orchestrator/schemas/types.py
+      - agent_orchestrator/utils/webhook.py
+      - agent_orchestrator/utils/async_redis_client.py
+    size: "12 files, +452 / -26"
+    review_order: 1
+
+  - id: conveyor
+    name: Conveyor
+    one_liner: Redis pointer stream, atomic claim with lease and fence token, reaper and bounded orphan sweep
+    stage: reviewed
+    stage_note: "fable on #1078; pr-sanity on #981; #981 head moved after its fable run"
+    risk: high
+    risk_why: A stalled worker must never overwrite a newer claim; sweep must never backfill prod
+    paths:
+      - agent_orchestrator/post_call_worker/queue/
+      - agent_orchestrator/post_call_worker/store/
+      - agent_orchestrator/post_call_worker/loops/
+    size: "15 files"
+    review_order: 5
+
+  - id: sorting-desk
+    name: Sorting desk
+    one_liner: The pipeline and detection core. Plan, run the sources (harness, ambient, conved, tenant module), merge, disposition
+    stage: reviewed
+    stage_note: "fable on #1079 and #1075; NEW detection (#1095) not yet reviewed"
+    risk: medium
+    risk_why: Correctness of events; no customer impact in shadow
+    paths:
+      - agent_orchestrator/post_call_worker/pipeline/
+      - agent_orchestrator/post_call_worker/apply/
+      - agent_orchestrator/post_call_worker/clients/
+    size: "28 files"
+    review_order: 6
+
+  - id: field-guide
+    name: Field guide
+    one_liner: Hand-written tenant event modules, fetched from Git at a pinned commit; CAM's module is the first
+    stage: tested
+    stage_note: "fable on #1080 (loader); CAM module #1084 blocked on six prompt files, never reviewed"
+    risk: high
+    risk_why: The worker executes Python downloaded from GitHub
+    paths:
+      - agent_orchestrator/post_call_worker/tenant_events/
+      - tenant_event_modules/cam_use2_000/
+    size: "13 files, +4,969 in the CAM port"
+    review_order: 4
+
+  - id: scorecard
+    name: Scorecard
+    one_liner: Per-call comparison of NEW against legacy through a correspondence table, plus /admin/shadow-report
+    stage: reviewed
+    stage_note: "fable on #1081; correspondence (#1095) not yet reviewed"
+    risk: medium
+    risk_why: A wrong mapping row shows up as disagreement that is the table's fault, not the detectors'
+    paths:
+      - agent_orchestrator/post_call_worker/shadow.py
+      - agent_orchestrator/post_call_worker/apply/correspondence.py
+      - agent_orchestrator/post_call_worker/admin/
+    size: "5 files"
+    review_order: 3
+
+  - id: switch
+    name: The Switch
+    one_liner: POST_CALL_LIVE_TENANTS. Decided once per call in end_call, stamped on the record, obeyed by the worker. Off by default
+    stage: tested
+    stage_note: "Built 2026-10-07 in #1095; end to end on real Mongo and Redis; no review yet"
+    risk: high
+    risk_why: When on, the worker owns the customer-facing fields
+    paths:
+      - agent_orchestrator/post_call_worker/live.py
+      - agent_orchestrator/service/call_service.py
+      - tests/integration/post_call_worker/test_worker_end_to_end.py
+    size: "3 files plus the Stamp live path"
+    review_order: 2
+
+  - id: loading-dock
+    name: Loading dock
+    one_liner: Worker image, TrueFoundry specs, deploy workflow, CI with real Mongo and Redis, local stack playbook, runbook
+    stage: tested
+    stage_note: Image never built (no Docker where this was written); local stack ran end to end
+    risk: low
+    risk_why: Nothing deploys on merge; the workflow is manual
+    paths:
+      - Dockerfile.post_call_worker
+      - deployment/post-call-worker/
+      - deployment/local/
+      - .github/workflows/
+      - docs/runbooks/local-stack.md
+      - docs/post_call_worker/runbook.md
+    size: "16 files"
+    review_order: 7
+
+pillars:
+  - id: P1
+    statement: Shadow writes (post_call, in_call_emits, amd_detections) reach no customer surface
+    state: verified
+    evidence: Every outside surface reads a fixed field list (design §3). Open edge - the BigQuery sync lives in another repo and is unchecked
+    chunk: stamp
+  - id: P2
+    statement: "With both tenant lists empty, merging #1074 changes nothing in prod"
+    state: verified
+    evidence: test_end_call_live_switch.py pins the db-store body for an unserved tenant against main
+    chunk: stamp
+  - id: P3
+    statement: The first shadow tenant is a proAgent voice tenant whose disposition rules use the compared events
+    state: needs-you
+    evidence: >
+      Invalidated once already. CAM was the planned first tenant from 2026-09-24 to
+      2026-10-06, and CAM has no proAgent calls. Candidates with their own rules in
+      the FBT suites - aca, cascade, crs_use2_000, nes_use2_000, 1fa
+    chunk: scorecard
+  - id: P4
+    statement: NEW's sources (ambient + conved + CAM module) cover the legacy events that rules depend on, via the correspondence
+    state: assumed
+    evidence: 7 legacy detection events mapped; conved variants (Wrong Party Relative, Third Party Spouse) left out until shadow data places them
+    chunk: scorecard
+  - id: P5
+    statement: "proagent-apis #801 is deployed before any tenant is served, so a late db-store cannot revert worker writes"
+    state: assumed
+    evidence: "#801 is behind proagent-apis main (missing c95b63f2, pins prosdks 0.2.0). Gate G4"
+    chunk: conveyor
+  - id: P6
+    statement: Prod load fits 2 replicas at 8 calls each, with no per-call LLM pass
+    state: assumed
+    evidence: 51k call ends per weekday, design point 100/min; laptop bench 2 s per call; gateway load unmeasured (#890)
+    chunk: loading-dock
+
+decisions:
+  - id: D-31
+    chunk: field-guide
+    summary: No Bifrost extractor in the first release. Tenant definitions are hand-written modules loaded from Git at one pinned commit
+    state: approved
+    by: you, 2026-09-24
+  - id: D-32
+    chunk: loading-dock
+    summary: The first shadow milestone runs in prod, not dev. Dev is a smoke stage only
+    state: approved
+    by: you, 2026-10-05
+  - id: D-33
+    chunk: sorting-desk
+    summary: The worker does not use the legacy detector at all. No LLM pass, no transcript or voicemail extractors
+    state: approved
+    by: you, 2026-10-06 ("we want to drop the old detector")
+  - id: D-34
+    chunk: sorting-desk
+    summary: A proAgent-owned ambient source emits deterministic events from call metadata for every tenant (call_answered, no_answer, short_call, ...)
+    state: approved
+    by: you, 2026-10-06
+  - id: D-35
+    chunk: field-guide
+    summary: In shadow, CAM's ported module runs for every served proAgent tenant that has no module of its own
+    state: recommended
+    by: agent, 2026-10-06. Never explicitly ratified. Its value is doubtful - most CAM events are CAM-specific (agent names, agency names)
+  - id: D-36
+    chunk: switch
+    summary: Promotion is per tenant and decided once per call in end_call. SHADOW_MODE and POST_CALL_LEGACY_DETECTION_TENANTS retired
+    state: approved
+    by: you, 2026-10-07 ("the PR needs to have both right now, and a clear, tested way to deprecate the old system")
+  - id: C-1
+    chunk: field-guide
+    summary: Where tenant modules live long term. Built in this repo under tenant_event_modules/; recommendation is a dedicated repo proagent-tenant-events so the worker's token reads nothing else
+    state: recommended
+  - id: C-2
+    chunk: loading-dock
+    summary: The worker's prod Mongo credentials. Spec uses proagent-apis' admin secret; recommendation is a dedicated user with tenant read-write and myadmin read
+    state: recommended
+  - id: C-3
+    chunk: sorting-desk
+    summary: Source failure policy. A precomputed (harness) failure retries the call; other sources degrade and are recorded
+    state: assumed
+    by: agent. Needs sign-off from the definition owners
+  - id: C-4
+    chunk: scorecard
+    summary: How rules name the new events (#1094). Catalog of canonical names, conved ids directly, or today's names. Shadow does not wait on it
+    state: needs-you
+  - id: C-5
+    chunk: scorecard
+    summary: Only conved's base events are mapped in the correspondence; variants are left out until shadow data places them
+    state: assumed
+  - id: C-6
+    chunk: conveyor
+    summary: Sweep looks back 24 h at served tenants only. UAT records carrying a served tenant's id would be swept too
+    state: assumed
+  - id: C-7
+    chunk: sorting-desk
+    summary: A failed rules fetch never falls back to tenant defaults; cached rules serve for up to 24 h
+    state: assumed
+  - id: C-8
+    chunk: loading-dock
+    summary: Merge order. Everything lands on the feature branch, dev smoke runs from it, then it merges to main. Merge-to-main-first was rejected
+    state: approved
+    by: you, 2026-10-06
+  - id: C-9
+    chunk: loading-dock
+    summary: codex-review is waived for this feature (backend returns 402)
+    state: approved
+    by: you, 2026-10-06
+
+blockers:
+  - id: B-1
+    chunk: field-guide
+    what: CAM's module needs six prompt .txt files from bifrost-publishing-us/cam_use2_000/prompts/. They exist only on your machine
+    owner: you
+  - id: B-2
+    chunk: loading-dock
+    what: "SonarCloud D security rating on #1074. Project is private; the firing rule could not be read from the agent's side"
+    owner: you
+  - id: B-3
+    chunk: loading-dock
+    what: Two worker secrets per environment (POST_CALL_ADMIN_TOKEN, TENANT_EVENTS_GITHUB_TOKEN) and the CloudWatch metric filters and alarms from runbook §6
+    owner: you
+  - id: B-4
+    chunk: stamp
+    what: "Review gate on #1074 as a whole - pr-sanity and fable-review. Replaces the missing fable report on the fencing slice"
+    owner: agent
+  - id: B-5
+    chunk: conveyor
+    what: "proagent-apis #801 is behind its main branch and must be rebased, reviewed and deployed to dev and prod before R0"
+    owner: agent, then you
+
+changelog:
+  - date: 2026-10-07
+    what: "Collapsed 13 stacked PRs and the integration branch into one PR into main (#1074). 12 interim issues closed as duplicates of #886"
+  - date: 2026-10-07
+    what: Found and fixed a tenant-database map 15 tenants behind proagent-apis. Would have hit prod
+  - date: 2026-10-07
+    what: Local stack playbook (docs/runbooks/local-stack.md) runs the whole call path on one machine
+  - date: 2026-10-07
+    what: The Switch built and tested end to end (D-36)
+  - date: 2026-10-06
+    what: Legacy detector dropped from NEW; ambient source added; correspondence table added (D-33 to D-35)
+  - date: 2026-10-06
+    what: CAM-first rollout invalidated. CAM is not a proAgent tenant. First tenant now undecided (P3)
+  - date: 2026-10-06
+    what: 21 plan docs consolidated to 3 plus README; originals moved to archive/
