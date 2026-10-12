@@ -50,4 +50,4 @@ blockers: []
 
 changelog:
   - date: "{{TODAY}}"
-    what: "elih kicked off"
+    what: "elih kicked off"           # then: "grilled: N rounds, N questions, N left open"
