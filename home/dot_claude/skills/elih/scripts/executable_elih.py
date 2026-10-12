@@ -15,7 +15,7 @@ toolchain is available and embedded where the ledger names a view id.
 import argparse
 import datetime as dt
 import html
-import json
+import os
 import re
 import shutil
 import subprocess
@@ -238,6 +238,60 @@ def split_sections(md):
     if title is not None:
         out.append((title, "\n".join(buf)))
     return out
+
+
+FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+
+def split_fenced(md: str) -> list:
+    """Alternating [prose, fence, prose, ...] per CommonMark: a fence opens on up to three
+    spaces plus three or more backticks or tildes, and closes only on the same character,
+    at least as long, with up to three spaces of indent. An unclosed fence runs to the end."""
+    parts, buf, fence = [], [], None     # fence = (char, length) while inside one
+    for line in md.splitlines(keepends=True):
+        m = FENCE_OPEN_RE.match(line)
+        if fence is None:
+            if m and (m.group(1)[0] != "`" or "`" not in line[m.end():]):
+                parts.append("".join(buf)); buf = [line]; fence = (m.group(1)[0], len(m.group(1)))
+            else:
+                buf.append(line)
+        else:
+            buf.append(line)
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= fence[1] and not line[m.end():].strip():
+                parts.append("".join(buf)); buf = []; fence = None
+    parts.append("".join(buf))
+    return parts
+
+
+def is_fence(part: str) -> bool:
+    return bool(FENCE_OPEN_RE.match(part))
+
+
+LINK_RE = re.compile(r"(!?\[[^\]]*\]\()(<[^>]*>|[^)\s]+)(\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?(\))")
+REF_RE = re.compile(r"^([ ]{0,3}\[([^\]]+)\]:[ \t]+)(<[^>]*>|\S+)", re.M)
+
+
+def rebase_links(md: str, from_dir: Path, to_dir: Path) -> str:
+    """Rewrite relative link, image and reference-definition targets so they still
+    resolve from to_dir. Fragments, absolute paths and URLs are left alone; fenced
+    code is skipped. Angle-bracketed targets keep their brackets."""
+    def rebase(target):
+        bracketed = target.startswith("<") and target.endswith(">")
+        inner = target[1:-1] if bracketed else target
+        if not inner or re.match(r"^(#|/|[a-z][a-z0-9+.-]*:)", inner, re.I):
+            return target
+        path, _, frag = inner.partition("#")
+        new = os.path.relpath((from_dir / path).resolve(), to_dir.resolve()) + ("#" + frag if frag else "")
+        return f"<{new}>" if bracketed else new
+
+    def fix_inline(m):
+        return m.group(1) + rebase(m.group(2)) + (m.group(3) or "") + m.group(4)
+
+    def fix_ref(m):
+        return m.group(1) + rebase(m.group(3))
+
+    parts = split_fenced(md)
+    return "".join(part if is_fence(part) else REF_RE.sub(fix_ref, LINK_RE.sub(fix_inline, part)) for part in parts)
 
 
 def md_block(md):
@@ -552,10 +606,11 @@ def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False) -> 
     if use_likec4 and (src / "model.c4").exists():
         export_likec4(src, views_dir, png=png)
 
-    board_md = (src / "board.md").read_text()
+    out_dir = out.parent
+    board_md = rebase_links((src / "board.md").read_text(), src, out_dir)
     chunk_tabs, nav = [], ['<button data-tab="board"><span class="n">L0</span>Board</button>']
     for c in L["chunks"]:
-        md = (src / "chunks" / f'{c["id"]}.md').read_text()
+        md = rebase_links((src / "chunks" / f'{c["id"]}.md').read_text(), src / "chunks", out_dir)
         chunk_tabs.append(f'<div class="tab" id="tab-{c["id"]}">{chunk_tab(L, c, md, views_dir)}</div>')
         nav.append(f'<button data-tab="{c["id"]}"><span class="n">{c["review_order"]}</span>{esc(c["name"])}</button>')
     nav.append('<button data-tab="ledger"><span class="n">L1</span>Ledger</button>')
@@ -610,11 +665,15 @@ def export_likec4(src: Path, views_dir: Path, png: bool = False):
         return
     views_dir.mkdir(parents=True, exist_ok=True)
     cmd = ["npx", "--yes", "likec4"] + (["export", "png"] if png else ["gen", "mermaid"]) + ["-o", str(views_dir), str(src)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    if r.returncode != 0:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        failed, detail = r.returncode != 0, r.stderr + r.stdout
+    except subprocess.TimeoutExpired:
+        failed, detail = True, "timed out after 600s"
+    if failed:
         shutil.rmtree(views_dir, ignore_errors=True)
-        hint = " Run `npx playwright install chromium` for PNG export." if png and "playwright" in (r.stderr + r.stdout).lower() else ""
-        print(f"likec4 {' '.join(cmd[3:5])} failed; falling back to the Mermaid blocks in the source.{hint}\n{r.stderr[-600:]}", file=sys.stderr)
+        hint = " Run `npx playwright install chromium` for PNG export." if png and "playwright" in detail.lower() else ""
+        print(f"likec4 {' '.join(cmd[3:5])} failed; falling back to the Mermaid blocks in the source.{hint}\n{detail[-600:]}", file=sys.stderr)
 
 
 # ----------------------------------------------------------------------------
@@ -669,6 +728,41 @@ def sentence(text):
     return t if not t or t[-1] in ".!?" else t + "."
 
 
+REF_DEF_RE = re.compile(r"^[ ]{0,3}\[([^\]]+)\]:[ \t]+(<[^>]*>|\S+)(?:[ \t]+(\"[^\"]*\"|'[^']*'|\([^)]*\)))?[ \t]*$", re.M)
+
+
+def inline_refs(page: str) -> str:
+    """Resolve reference-style links to inline ones and drop the definitions, so pages
+    from several chunks can be merged without their labels colliding."""
+    parts = split_fenced(page)
+    defs = {m.group(1).casefold(): (m.group(2), m.group(3))
+            for part in parts if not is_fence(part) for m in REF_DEF_RE.finditer(part)}
+    if not defs:
+        return page
+
+    def target(label):
+        dest, title = defs[label.casefold()]
+        return "(" + dest + (" " + title if title else "") + ")"
+
+    def full_or_collapsed(m):   # [text][label] or [label][]
+        text, label = m.group(1), m.group(2) or m.group(1)
+        return (f"[{text}]" + target(label)) if label.casefold() in defs else m.group(0)
+
+    def shortcut(m):            # [label] on its own
+        label = m.group(1)
+        return (f"[{label}]" + target(label)) if label.casefold() in defs else m.group(0)
+
+    out = []
+    for part in parts:
+        if is_fence(part):
+            out.append(part); continue
+        part = REF_DEF_RE.sub("", part)
+        part = re.sub(r"(?<!\])\[([^\]]+)\]\[([^\]]*)\]", full_or_collapsed, part)
+        part = re.sub(r"(?<![\]\[])\[([^\]]+)\](?![\[(:])", shortcut, part)
+        out.append(part)
+    return "".join(out)
+
+
 def section(md, title):
     for t, body in split_sections(md):
         if t == title:
@@ -693,24 +787,21 @@ def dissolve(src: Path, out: Path, partial: bool = False) -> Path:
     vocab = L.get("vocabulary") or []
     by_id = {c["id"]: c for c in chunks}
 
-    def yaml_list(items):
-        return "[" + ", ".join(json.dumps(str(i)) for i in items) + "]"
-
-    fm = ["---", f"feature: {F['slug']}", f"title: {json.dumps(F['name'])}",
-          f"as_of: {F.get('status_date')}", f"head: {F.get('head')}",
-          f"complete: {'false' if open_chunks else 'true'}", "graph:",
-          "  read:"]
+    read = []
     for sl in sources:
-        fm.append(f"    - note: {sl['note']}")
-        fm.append(f"      result: {sl.get('result', 'unused')}")
+        row = {"note": str(sl["note"]), "result": str(sl.get("result", "unused"))}
         if sl.get("used_for"):
-            fm.append(f"      used_for: {yaml_list(sl['used_for'])}")
-    fm.append(f"  corrects: {yaml_list([sl['note'] for sl in sources if sl.get('result') == 'contradicted'])}")
-    fm.append(f"  introduces: {yaml_list([v['term'] for v in vocab])}")
-    fm.append(f"  decisions: {yaml_list([d['id'] for d in settled if d.get('adr')])}")
-    fm.append("---")
+            row["used_for"] = [str(i) for i in sl["used_for"]]
+        read.append(row)
+    meta = {"feature": str(F["slug"]), "title": str(F["name"]), "as_of": str(F.get("status_date")),
+            "head": str(F.get("head")), "complete": not open_chunks,
+            "graph": {"read": read,
+                      "corrects": [str(sl["note"]) for sl in sources if sl.get("result") == "contradicted"],
+                      "introduces": [str(v["term"]) for v in vocab],
+                      "decisions": [str(d["id"]) for d in settled if d.get("adr")]}}
+    fm = "---\n" + yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=1000) + "---"
 
-    doc = ["\n".join(fm), "", f"# {F['name']}", "",
+    doc = [fm, "", f"# {F['name']}", "",
            f"<!-- Written from elih/ledger.yaml at {F.get('head')} when the feature closed. The ledger is gone; edit this file freely. -->",
            "", str(F.get("goal", "")).strip(), ""]
     if F.get("done_when"):
@@ -718,7 +809,7 @@ def dissolve(src: Path, out: Path, partial: bool = False) -> Path:
     if M.get("chosen"):
         doc += [f"The parts are named after a {str(M['chosen']).lower()}. {str(M.get('rationale', '')).strip()}", ""]
 
-    board = (src / "board.md").read_text() if (src / "board.md").exists() else ""
+    board = rebase_links((src / "board.md").read_text(), src, out.parent) if (src / "board.md").exists() else ""
     secs = split_sections(board)
     passes = [(t, b) for t, b in secs if not t.lower().startswith("context")]
     context = [(t, b) for t, b in secs if t.lower().startswith("context")]
@@ -729,7 +820,7 @@ def dissolve(src: Path, out: Path, partial: bool = False) -> Path:
         doc += ["### Who talks to whom", "", context[0][1].strip(), ""]
 
     for c in chunks:
-        page = (src / "chunks" / f"{c['id']}.md").read_text()
+        page = inline_refs(rebase_links((src / "chunks" / f"{c['id']}.md").read_text(), src / "chunks", out.parent))
         doc += [f"## {c['name']}", "", str(c.get("one_liner", "")).strip(), ""]
         for title in ("What it does", "Why this way", "How it works", "States"):
             body = section(page, title)
