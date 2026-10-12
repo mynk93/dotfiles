@@ -18,7 +18,7 @@ feature:
     - Legacy fields and every customer surface are byte-identical for served tenants
   artifact_to_review: "https://github.com/prodigal-tech/agent-orchestrator/pull/1074"
   branch: feature/post-call-sync-main
-  head: 441e3b5
+  head: 3c19fef
   epic: "https://github.com/prodigal-tech/agent-orchestrator/issues/822"
   status_date: 2026-10-12
   last_ack: null   # set by /elih ack; null means never acknowledged

@@ -85,6 +85,6 @@ Add one changelog row: `grilled: <rounds> rounds, <questions> questions, <needs-
 
 The human may stop the session at any point with "enough" or "scaffold it". That is a normal exit, not a failure. The frontier at that moment is written down as `needs-you` rows and shows on the board under "Blocked on you", so the questions are re-asked in the same place every run until answered (principle 4). The agent may not build past one run on a pillar left open this way (principle 3).
 
-## What grilling is not
+## Mid-feature questions
 
-It is not a per-run ritual. It runs once at kickoff. Later questions go on the board as `recommended` or `needs-you` rows and are answered by the human on their own schedule. If the human wants a second grilling mid-feature, they invoke `/grill-me` themselves and the agent lands the answers with the same table above.
+After kickoff, questions go on the board as `recommended` or `needs-you` rows and the human answers them on their own schedule. A second grilling happens only when the human invokes `/grill-me` themselves; the agent then lands the answers with the same table above.
