@@ -17,7 +17,7 @@ flowchart LR
     classDef old stroke-dasharray:5 5,stroke:#6B6A66,color:#6B6A66,fill:#fff
     classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67
     subgraph OLD["OLD (legacy, on the record)"]
-        OE["events: harness + legacy detection"]:::old
+        OE["events: harness + clerk"]:::old
         OD["call_disposition_data"]:::old
     end
     subgraph NEW["NEW (worker)"]

@@ -6,7 +6,7 @@
 flowchart TD
     classDef legacy stroke-dasharray:5 5,stroke:#6B6A66,color:#6B6A66,fill:#fff
     classDef existing fill:#fff,stroke:#003D67,color:#003D67
-    EC["end_call (room still open)"]:::existing --> LEG["Legacy detection: 2 s LLM budget, no retry"]:::legacy
+    EC["end_call (room still open)"]:::existing --> LEG["Clerk (legacy): 2 s LLM budget, no retry"]:::legacy
     LEG --> DBS["db-store"]:::existing --> DB[("Mongo call record")]:::existing
     DB --> OUT["get-call, TCN, EOD, Manthan, CRM, proInsight CSV"]:::existing
     LVW["lv-webhook FAQ tagger (minutes later)"]:::legacy -->|"overwrites events"| DB
@@ -21,7 +21,7 @@ flowchart TD
     classDef legacy stroke-dasharray:5 5,stroke:#6B6A66,color:#6B6A66,fill:#fff
     classDef existing fill:#fff,stroke:#003D67,color:#003D67
     classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67,stroke-width:2px
-    EC["end_call"]:::existing --> LEG["Legacy detection (unchanged, customer-facing)"]:::legacy
+    EC["end_call"]:::existing --> LEG["Clerk (legacy, unchanged, customer-facing)"]:::legacy
     LEG --> ST["STAMP: post_call pending + in-call emits + AMD detections (served tenants only)"]:::new
     ST --> DBS["One db-store"]:::existing --> DB[("Mongo: legacy fields + post_call")]:::existing
     DBS -->|"only after 2xx"| Q[["CONVEYOR: Redis pointer stream"]]:::new
@@ -40,7 +40,7 @@ flowchart TD
     classDef existing fill:#fff,stroke:#003D67,color:#003D67
     classDef earlier fill:#F2EDE3,stroke:#003D67,color:#003D67
     classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67,stroke-width:2px
-    EC["end_call"]:::existing --> LEG["Legacy detection"]:::legacy --> ST["Stamp"]:::earlier --> DBS["db-store"]:::existing --> DB[("Mongo")]:::existing
+    EC["end_call"]:::existing --> LEG["Clerk (legacy)"]:::legacy --> ST["Stamp"]:::earlier --> DBS["db-store"]:::existing --> DB[("Mongo")]:::existing
     DBS --> Q[["Conveyor"]]:::earlier --> CL["Claim"]:::earlier
     subgraph SD["SORTING DESK (one claimed record)"]
         COL["Collect: record + S3 transcript"]:::new --> RUL["Rules: agent config by agent_id"]:::new --> PLAN["Plan: which definitions run, reason per skip"]:::new
@@ -60,7 +60,7 @@ flowchart TD
     classDef existing fill:#fff,stroke:#003D67,color:#003D67
     classDef earlier fill:#F2EDE3,stroke:#003D67,color:#003D67
     classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67,stroke-width:2px
-    EC["end_call"]:::existing --> LEG["Legacy detection"]:::legacy --> ST["Stamp"]:::earlier --> DBS["db-store"]:::existing --> DB[("Mongo")]:::existing
+    EC["end_call"]:::existing --> LEG["Clerk (legacy)"]:::legacy --> ST["Stamp"]:::earlier --> DBS["db-store"]:::existing --> DB[("Mongo")]:::existing
     DBS --> Q[["Conveyor"]]:::earlier --> CL["Claim"]:::earlier --> SD["Sorting desk"]:::earlier
     FG[("Field guide")]:::earlier -.-> SD
     SD --> CMP["SCORECARD: compare NEW vs legacy per call, in legacy's vocabulary"]:::new
@@ -78,7 +78,7 @@ flowchart TD
     classDef earlier fill:#F2EDE3,stroke:#003D67,color:#003D67
     classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67,stroke-width:2px
     EC["end_call"]:::existing --> SWX{"THE SWITCH: tenant in POST_CALL_LIVE_TENANTS?"}:::new
-    SWX -->|"no (shadow)"| LEG["Legacy detection"]:::legacy --> ST["Stamp"]:::earlier
+    SWX -->|"no (shadow)"| LEG["Clerk (legacy)"]:::legacy --> ST["Stamp"]:::earlier
     SWX -->|"yes (live)"| STL["Stamp live=true, null the legacy fields"]:::new
     ST --> DBS["db-store"]:::existing
     STL --> DBS

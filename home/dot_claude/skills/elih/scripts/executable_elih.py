@@ -127,11 +127,34 @@ def lint(src: Path) -> list:
     if len(seen_prefixes - {"D", "C"}) > 0:
         warn(f"decision id prefixes beyond D and C: {sorted(seen_prefixes - {'D', 'C'})}. New namespaces are what elih exists to stop")
 
+    for d in L.get("decisions") or []:
+        if d.get("adr") and not str(d.get("why", "")).strip():
+            err(f"decision {d.get('id')}: adr is true, so 'why' is required (hard to reverse, surprising, a real trade-off)")
+
     for b in L.get("blockers") or []:
         if b.get("chunk") not in ids:
             err(f"blocker {b.get('id')}: chunk '{b.get('chunk')}' is not a chunk id")
         if not b.get("owner"):
             err(f"blocker {b.get('id')}: owner is missing")
+
+    vocab = L.get("vocabulary") or []
+    terms = set()
+    for v in vocab:
+        t = str(v.get("term", "")).strip()
+        if not t or not str(v.get("meaning", "")).strip():
+            err(f"vocabulary: every row needs 'term' and 'meaning' ({v})")
+        if t.lower() in terms:
+            err(f"vocabulary: term '{t}' is listed twice")
+        terms.add(t.lower())
+        if v.get("chunk") and v["chunk"] not in ids:
+            err(f"vocabulary '{t}': chunk '{v['chunk']}' is not a chunk id")
+    prose = [("board.md", src / "board.md")] + [(f"chunks/{c.get('id')}.md", src / "chunks" / f"{c.get('id')}.md") for c in chunks]
+    for v in vocab:
+        for bad in v.get("avoid") or []:
+            pat = re.compile(r"\b" + re.escape(str(bad)) + r"\b", re.IGNORECASE)
+            for label, path in prose:
+                if path.exists() and pat.search(path.read_text()):
+                    warn(f"{label}: uses '{bad}'; the style guide says '{v['term']}'")
 
     # Truncated values: the classic ' #123' YAML comment trap.
     raw = (src / "ledger.yaml").read_text().splitlines()
@@ -228,13 +251,22 @@ def chunk_ledger_md(L, cid):
             rows.append(f'| Pillar {p["id"]} | {p["statement"]} | **{p["state"]}** | {p.get("evidence", "")} |')
     for d in L.get("decisions") or []:
         if d["chunk"] == cid:
-            rows.append(f'| {d["id"]} | {d["summary"]} | **{d["state"]}** | {d.get("by", "")} |')
+            rows.append(f'| {d["id"]} | {d["summary"]}{why_html(d)} | **{d["state"]}** | {d.get("by", "")} |')
     for b in L.get("blockers") or []:
         if b["chunk"] == cid:
             rows.append(f'| Blocker {b["id"]} | {b["what"]} | **owner: {b["owner"]}** | |')
     if not rows:
         return "_Nothing recorded for this chunk._"
     return "| Id | Statement | State | Evidence / by |\n|---|---|---|---|\n" + "\n".join(rows)
+
+
+def why_html(d):
+    why = str(d.get("why", "")).strip()
+    if not why:
+        return ""
+    tag = "Editor's note (ADR)" if d.get("adr") else "Editor's note"
+    link = f' <a href="{esc(d["adr_file"])}">file</a>' if d.get("adr_file") else ""
+    return f'<details class="why"><summary>{tag}</summary>{esc(why)}{link}</details>'
 
 
 def blocked_on_you(L):
@@ -293,6 +325,13 @@ def board_tab(L, board_md, views_dir):
         f'<td>{pill(p["state"], STATE_PILL.get(p["state"], "pill--soft"))}</td><td class="muted">{esc(p.get("evidence", ""))}</td></tr>'
         for p in L.get("pillars") or [])
 
+    vocab = L.get("vocabulary") or []
+    words = "".join(
+        f'<tr><td><strong>{esc(v["term"])}</strong></td><td>{esc(v["meaning"])}</td>'
+        f'<td class="muted">{esc(", ".join(v.get("avoid") or []))}</td></tr>' for v in vocab)
+    words_panel = (f'<details class="card words"><summary>📖 Words we use ({len(vocab)}). One name per thing; the right-hand column is what not to call it.</summary>'
+                   f'<table class="tbl"><thead><tr><th>Term</th><th>Meaning</th><th>Avoid</th></tr></thead><tbody>{words}</tbody></table></details>') if vocab else ""
+
     review = "".join(
         f'<tr><td>{c["review_order"]}</td><td><a href="#" data-tab="{c["id"]}">{esc(c["name"])}</a></td>'
         f'<td>{esc(c.get("risk_why", ""))}</td><td class="muted">{esc(c.get("size", ""))}</td></tr>'
@@ -333,6 +372,7 @@ def board_tab(L, board_md, views_dir):
     <div class="chunk-grid">{grid}</div>
     <h2>🏛️ Pillars: assumptions that <span class="hl">stop everything</span> if false</h2>
     <section class="card"><table class="tbl"><thead><tr><th>Id</th><th>Pillar</th><th>State</th><th>Evidence</th></tr></thead><tbody>{pillars}</tbody></table></section>
+    {words_panel}
     <h2>🧭 The flow, revealed <span class="hl">one chunk at a time</span></h2>
     <section class="card stepper">
       <div class="stepper__nav"><button class="btn" id="prev">← Back</button><div class="dots">{dots}</div><button class="btn" id="next">Next →</button></div>
@@ -369,7 +409,7 @@ def chunk_tab(L, c, md, views_dir):
 def ledger_tab(L):
     by_id = {c["id"]: c["name"] for c in L["chunks"]}
     dec = "".join(
-        f'<tr><td><code class="inline">{esc(d["id"])}</code></td><td>{esc(by_id[d["chunk"]])}</td><td>{esc(d["summary"])}</td>'
+        f'<tr><td><code class="inline">{esc(d["id"])}</code></td><td>{esc(by_id[d["chunk"]])}</td><td>{esc(d["summary"])}{why_html(d)}</td>'
         f'<td>{pill(d["state"], STATE_PILL.get(d["state"], "pill--soft"))}</td><td class="muted">{esc(d.get("by", ""))}</td></tr>'
         for d in L.get("decisions") or [])
     blk = "".join(
@@ -414,6 +454,7 @@ CSS = r'''
     .muted{color:var(--ink-muted);font-size:.9rem}.lead{font-size:1.05rem}
     .tbl{width:100%;border-collapse:collapse;font-size:.92rem}.tbl th{text-align:left;font-weight:700;border-bottom:2px solid var(--border);padding:.5rem .6rem;white-space:nowrap}.tbl td{border-bottom:1px solid var(--border);padding:.5rem .6rem;vertical-align:top}
     .tbl tr.st-invalidated td{background:#F3D9CC}
+    details.why{margin-top:.3rem;font-size:.88rem}details.why>summary{cursor:pointer;color:var(--muted)}details.why[open]>summary{color:var(--navy)}details.words>summary{cursor:pointer;font-weight:700}details.words[open]>summary{margin-bottom:.6rem}
     .md table{width:100%;border-collapse:collapse;font-size:.92rem;margin:.75rem 0}.md th{text-align:left;border-bottom:2px solid var(--border);padding:.45rem .6rem}.md td{border-bottom:1px solid var(--border);padding:.45rem .6rem;vertical-align:top}
     .md h2{font-size:1.2rem;margin-top:1.75rem;padding-top:1rem;border-top:1px solid var(--border)}.md h2:first-child{border-top:0;margin-top:0;padding-top:0}
     .md .mermaid{display:flex;justify-content:center;background:var(--bg);border-radius:12px;padding:.75rem;margin:.75rem 0}

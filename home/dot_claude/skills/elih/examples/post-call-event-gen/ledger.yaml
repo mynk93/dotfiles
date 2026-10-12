@@ -18,9 +18,9 @@ feature:
     - Legacy fields and every customer surface are byte-identical for served tenants
   artifact_to_review: "https://github.com/prodigal-tech/agent-orchestrator/pull/1074"
   branch: feature/post-call-sync-main
-  head: 5e9862c5
+  head: f7bec07
   epic: "https://github.com/prodigal-tech/agent-orchestrator/issues/822"
-  status_date: 2026-10-08
+  status_date: 2026-10-12
   last_ack: null   # set by /elih ack; null means never acknowledged
 
 metaphor:
@@ -181,11 +181,23 @@ decisions:
     summary: No Bifrost extractor in the first release. Tenant definitions are hand-written modules loaded from Git at one pinned commit
     state: approved
     by: you, 2026-09-24
+    adr: true
+    why: >
+      Bifrost could generate tenant definitions from the legacy detector's config, but the
+      output would have to be reviewed line by line anyway and would tie the first release to
+      Bifrost's schema. Hand-written modules pinned to one Git commit are slower to author
+      and trivial to audit; the extractor can be added later without changing the loader.
   - id: D-32
     chunk: loading-dock
     summary: The first shadow milestone runs in prod, not dev. Dev is a smoke stage only
     state: approved
     by: you, 2026-10-05
+    adr: true
+    why: >
+      Dev has no real call traffic, so a shadow there compares the sorter against nothing.
+      Prod shadow is safe because P1 holds (shadow writes reach no customer surface) and it
+      produces the only data that can promote a tenant. The cost is that the first worker
+      deploy is a prod deploy, which is why the loading dock has its own review order.
   - id: D-33
     chunk: sorting-desk
     summary: The worker does not use the legacy detector at all. No LLM pass, no transcript or voicemail extractors
@@ -206,6 +218,12 @@ decisions:
     summary: Promotion is per tenant and decided once per call in end_call. SHADOW_MODE and POST_CALL_LEGACY_DETECTION_TENANTS retired
     state: approved
     by: you, 2026-10-07 ("the PR needs to have both right now, and a clear, tested way to deprecate the old system")
+    adr: true
+    why: >
+      A global SHADOW_MODE flag would have been one switch for every tenant, so a single bad
+      tenant would block promotion for all. Deciding per tenant, once per call, in end_call
+      keeps the decision next to the stamp and lets the legacy detector retire one tenant at
+      a time. The two env lists are replaced by one tenant-keyed setting.
   - id: C-1
     chunk: field-guide
     summary: Where tenant modules live long term. Built in this repo under tenant_event_modules/; recommendation is a dedicated repo proagent-tenant-events so the worker's token reads nothing else
@@ -246,6 +264,31 @@ decisions:
     state: approved
     by: you, 2026-10-06
 
+vocabulary:
+  - term: tenant
+    meaning: One customer's voice deployment, the unit that owns rules, events and a module.
+    avoid: [client, customer account, org]
+  - term: sorter
+    meaning: The new worker that reads a posted call against its tenant's field guide and emits events.
+    avoid: [detector v2, new detector, event generator]
+    chunk: sorting-desk
+  - term: clerk
+    meaning: The legacy in-process detector that the sorter is measured against and will replace.
+    avoid: [old detector, legacy detection, v1]
+    chunk: scorecard
+  - term: field guide
+    meaning: A tenant's hand-written module that says which events exist and how to recognise them.
+    avoid: [tenant definition, extractor output]
+    chunk: field-guide
+  - term: shadow
+    meaning: Running the sorter beside the clerk and recording both, with nothing reaching a customer surface.
+    avoid: [dry run, dark launch, parallel mode]
+    chunk: scorecard
+  - term: promotion
+    meaning: The per-tenant, per-call decision in end_call that the customer receives the sorter's events instead of the clerk's.
+    avoid: [cutover, migration, flag flip]
+    chunk: switch
+
 blockers:
   - id: B-1
     chunk: field-guide
@@ -269,6 +312,8 @@ blockers:
     owner: agent, then you
 
 changelog:
+  - date: "2026-10-12"
+    what: "style guide and editor's notes added to the ledger (retro, after the feature)"
   - date: 2026-10-07
     what: "Collapsed 13 stacked PRs and the integration branch into one PR into main (#1074). 12 interim issues closed as duplicates of #886"
   - date: 2026-10-07

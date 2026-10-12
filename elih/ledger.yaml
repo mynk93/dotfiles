@@ -1,0 +1,173 @@
+# ELIH ledger. The board is generated from this file and nothing else.
+# Quote any value containing " #" (PR/issue refs start a YAML comment otherwise).
+# Schema and states: the elih skill's reference/ledger-schema.md
+
+feature:
+  name: "Elih: Newsroom"
+  slug: "elih-newsroom"
+  goal: >
+    Bring the ideas in Pocock's grill-with-docs into the elih kickoff without adding files:
+    four fact-checking disciplines during the interview, a style guide (vocabulary) in the
+    ledger, and an Editor's note (why) on decisions that pass the ADR gate. First release is
+    the skill change plus the post-call example exercising every new field.
+  done_when:
+    - reference/grilling.md carries the four disciplines and the new landing rows
+    - ledger schema and lint accept vocabulary and adr/why; lint requires why when adr is true
+    - lint warns when board.md or a chunk page uses a word the style guide avoids
+    - the board shows a collapsed "Words we use" panel and Editor's notes under decisions
+    - the post-call example has real vocabulary and three Editor's notes, and lint passes
+  artifact_to_review: "https://github.com/mynk93/dotfiles/pull/44"
+  branch: "feat/claude-elih"
+  head: f7bec07
+  epic: ""
+  status_date: 2026-10-12
+  last_ack: null
+  autonomy: normal
+
+metaphor:
+  chosen: Newsroom
+  rationale: >
+    A reporter's draft is fact-checked before it runs, written to the house style guide,
+    and the editor adds a note only where a reader would otherwise ask why.
+  alternatives_considered:
+    - "Courtroom: Cross-examination, the Record, Precedent"
+    - "Dictionary: Usage notes, Entries, Etymology"
+
+chunks:
+  - id: fact-check
+    name: Fact-check
+    one_liner: The four disciplines that run inside every grilling round and where their results land.
+    stage: tested
+    stage_note: "written into reference/grilling.md; exercised by this trial"
+    risk: low
+    risk_why: Prose only. The risk is that the agent skips the disciplines, which no lint can catch.
+    paths:
+      - home/dot_claude/skills/elih/reference/grilling.md
+      - home/dot_claude/skills/elih/SKILL.md
+    size: "~40 lines"
+    review_order: 1
+  - id: style-guide
+    name: Style guide
+    one_liner: One name per thing, in the ledger, shown on the board, and enforced by a lint warning.
+    stage: tested
+    stage_note: "lint found 7 real drifts in the example on first run; 6 fixed, 1 was a false positive"
+    risk: medium
+    risk_why: The avoid-word scan can be noisy on ordinary English words. Warning only.
+    paths:
+      - home/dot_claude/skills/elih/scripts/executable_elih.py
+      - home/dot_claude/skills/elih/reference/ledger-schema.md
+      - home/dot_claude/skills/elih/templates/ledger.yaml
+      - home/dot_claude/skills/elih/examples/post-call-event-gen/ledger.yaml
+    size: "~60 lines"
+    review_order: 2
+  - id: editors-note
+    name: Editor's note
+    one_liner: A why on a decision row, required only when the ADR gate holds, shown collapsed.
+    stage: tested
+    stage_note: "three notes on the example (D-31, D-32, D-36)"
+    risk: low
+    risk_why: The gate is judgement; lint only enforces that adr implies why.
+    paths:
+      - home/dot_claude/skills/elih/scripts/executable_elih.py
+      - home/dot_claude/skills/elih/reference/ledger-schema.md
+      - home/dot_claude/skills/elih/examples/post-call-event-gen/ledger.yaml
+    size: "~30 lines"
+    review_order: 3
+
+pillars:
+  - id: P1
+    statement: The entity budget holds. No GLOSSARY.md or docs/adr/ by default; vocabulary and why live in ledger.yaml
+    state: verified
+    evidence: "you, 2026-10-12 (Q3). Only ledger.yaml changed shape"
+    chunk: style-guide
+  - id: P2
+    statement: Elih works without the Pocock plugin; everything adopted is vendored, not referenced
+    state: verified
+    evidence: "you, 2026-10-12 (Q3). Plugin is not installed on this machine and the trial ran"
+    chunk: fact-check
+  - id: P3
+    statement: The post-call example is the acceptance test; a field that cannot be filled there with real content goes back out
+    state: verified
+    evidence: "you, 2026-10-12 (Q3). Six terms and three notes filled from the real feature"
+    chunk: editors-note
+
+decisions:
+  - id: D-1
+    chunk: fact-check
+    summary: Disciplines plus vocabulary plus a why field with an ADR gate; separate files deferred until a feature proves it needs them
+    state: approved
+    by: "you, 2026-10-12 (round 1, Q1)"
+  - id: D-2
+    chunk: style-guide
+    summary: Vocabulary is a top-level ledger key, not nested under metaphor; the metaphor names chunks, vocabulary names domain things
+    state: approved
+    by: "you, 2026-10-12 (round 2, Q1)"
+  - id: D-3
+    chunk: editors-note
+    summary: The ADR gate decides whether why is mandatory, never whether a file is created; a file is written only when the repo already has docs/adr/
+    state: approved
+    by: "you, 2026-10-12 (round 2, Q2)"
+    adr: true
+    why: >
+      Pocock's skill creates GLOSSARY.md and docs/adr/ lazily, which is reasonable in a repo
+      that has nothing. Elih exists to stop entity inflation, so a new file per decision
+      would undo its own premise. Keeping why on the row costs nothing and the board shows
+      it collapsed; repos that already keep ADRs get a file so their readers find it where
+      they look.
+  - id: D-4
+    chunk: fact-check
+    summary: Scenarios sharpen questions and are not recorded; term conflicts become vocabulary rows; code contradictions become needs-you decisions
+    state: approved
+    by: "you, 2026-10-12 (round 2, Q3)"
+  - id: D-5
+    chunk: style-guide
+    summary: Lint warns, never errors, when an avoided word appears in board.md or a chunk page
+    state: approved
+    by: "you, 2026-10-12 (round 2, Q4)"
+  - id: D-6
+    chunk: style-guide
+    summary: The Words we use panel sits below the pillars at L0, collapsed; chunk pages keep their six sections unchanged
+    state: approved
+    by: "you, 2026-10-12 (round 1 Q5, round 2 Q6)"
+  - id: C-1
+    chunk: style-guide
+    summary: Dropped "config" from the field guide's avoid list; it collided with config-manager, a different thing. The other six drifts were fixed in the prose
+    state: assumed
+    by: "agent, 2026-10-12"
+  - id: C-2
+    chunk: fact-check
+    summary: The trial's own elih/ lives at the dotfiles repo root, since the skill has no rule for a feature whose repo is the skill's own
+    state: recommended
+    by: "agent, 2026-10-12. Delete after the trial or keep as a second example"
+
+vocabulary:
+  - term: grilling
+    meaning: The round-based interview that maps a feature as a design tree before anything is written.
+    avoid: [grill-me, interview, Q&A]
+    chunk: fact-check
+  - term: frontier
+    meaning: The questions whose prerequisites are settled and can be asked now.
+    avoid: [open questions, backlog]
+    chunk: fact-check
+  - term: style guide
+    meaning: The ledger's vocabulary list, one name per thing with the words to avoid.
+    avoid: [glossary, GLOSSARY.md, dictionary]
+    chunk: style-guide
+  - term: Editor's note
+    meaning: The one-to-three-sentence why on a decision that is hard to reverse, surprising, and a real trade-off.
+    avoid: [ADR file, rationale section]
+    chunk: editors-note
+  - term: ADR gate
+    meaning: Pocock's three tests that decide whether a decision needs an Editor's note.
+    avoid: [importance, significance]
+    chunk: editors-note
+
+blockers: []
+
+changelog:
+  - date: "2026-10-12"
+    what: "built all three chunks; example lint clean after fixing the drift the style guide found"
+  - date: "2026-10-12"
+    what: "grilled: 2 rounds, 13 questions, 0 left open"
+  - date: "2026-10-12"
+    what: "elih kicked off"

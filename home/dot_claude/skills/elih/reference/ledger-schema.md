@@ -46,6 +46,15 @@ decisions:
     summary: string            # one sentence, the choice and the alternative it beat
     state: assumed | recommended | approved | rejected | superseded | needs-you
     by: string                 # "you, 2026-10-06 (quote)" or "agent, 2026-10-06"
+    adr: bool                  # optional. true when hard to reverse AND surprising without context AND a real trade-off
+    why: string                # one to three sentences: context, choice, reason. Required when adr is true, omitted otherwise
+    adr_file: path             # optional. Only when the repo already has docs/adr/; the row links to the file
+
+vocabulary:                    # the style guide. Optional; one row per project term, never general programming words
+  - term: string               # the one name for the thing
+    meaning: string            # one or two sentences, what it IS, no implementation detail
+    avoid: [string]            # other words people use for it; lint warns when they appear in board.md or a chunk page
+    chunk: chunk id            # optional, the chunk that owns the term
 
 blockers:
   - id: B-n
@@ -57,6 +66,12 @@ changelog:                     # newest first
   - date: YYYY-MM-DD
     what: string               # one line, in the human's vocabulary
 ```
+
+## Editor's notes and the style guide
+
+A decision row is one sentence. When a decision passes all three of Pocock's ADR tests (hard to reverse, surprising without context, the result of a real trade-off) it is marked `adr: true` and must carry a `why`. The board and chunk pages show `why` collapsed under the row as an "Editor's note", so the one-line summary is unchanged. Lint cannot judge the gate; it only enforces that `adr: true` has a `why`. No file is created for an ADR unless the repo already keeps `docs/adr/`, in which case the agent writes the one-paragraph ADR there and sets `adr_file`.
+
+`vocabulary` is the project's style guide: one name per concept, the words to avoid, and a meaning free of implementation detail. It appears on the board as a collapsed "Words we use" panel below the pillars. Lint warns whenever an avoided word appears in `board.md` or a chunk page, so the guide stays opinionated.
 
 ## States
 

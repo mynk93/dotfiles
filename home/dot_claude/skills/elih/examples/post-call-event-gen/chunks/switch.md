@@ -1,6 +1,6 @@
 ## What it does
 
-`POST_CALL_LIVE_TENANTS` on agent-orchestrator, empty by default. For a listed served tenant, `end_call` skips legacy detection, nulls the three customer-facing fields, and stamps `post_call.live: true`. The worker obeys the stamp, never its own configuration, and after detection writes `events`, `call_disposition_data` and `tags` in today's shapes and today's names. Events with no legacy name stay under `post_call` until naming is settled (C-4).
+`POST_CALL_LIVE_TENANTS` on agent-orchestrator, empty by default. For a listed served tenant, `end_call` skips the clerk, nulls the three customer-facing fields, and stamps `post_call.live: true`. The worker obeys the stamp, never its own configuration, and after detection writes `events`, `call_disposition_data` and `tags` in today's shapes and today's names. Events with no legacy name stay under `post_call` until naming is settled (C-4).
 
 ## Why this way
 

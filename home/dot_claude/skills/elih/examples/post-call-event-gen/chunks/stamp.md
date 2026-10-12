@@ -14,7 +14,7 @@
 ```mermaid
 sequenceDiagram
     participant EC as end_call
-    participant LEG as Legacy detection
+    participant LEG as Clerk (legacy)
     participant API as proagent-apis
     participant R as Redis
     EC->>EC: snapshot in-call emits (before legacy appends to the same list)
