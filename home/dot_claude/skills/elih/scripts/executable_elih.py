@@ -15,6 +15,7 @@ toolchain is available and embedded where the ledger names a view id.
 import argparse
 import datetime as dt
 import html
+import json
 import re
 import shutil
 import subprocess
@@ -34,6 +35,8 @@ RISKS = {"high", "medium", "low"}
 PILLAR_STATES = {"verified", "assumed", "needs-you", "invalidated"}
 DECISION_STATES = {"assumed", "recommended", "approved", "rejected", "superseded", "needs-you"}
 AUTONOMY = {"tight", "normal", "loose"}
+SOURCE_RESULTS = {"confirmed", "contradicted", "unused"}
+CLOSED_STAGES = {"merged", "deployed"}
 MAX_CHUNKS = 7
 PLACEHOLDER = "Filled from the ledger by chunk id."
 STATE_PILL = {
@@ -136,6 +139,19 @@ def lint(src: Path) -> list:
             err(f"blocker {b.get('id')}: chunk '{b.get('chunk')}' is not a chunk id")
         if not b.get("owner"):
             err(f"blocker {b.get('id')}: owner is missing")
+
+    row_ids = {str(p.get("id")) for p in pillars} | {str(d.get("id")) for d in L.get("decisions") or []}
+    for sline in L.get("sources") or []:
+        note = sline.get("note")
+        if not note or not sline.get("claim"):
+            err(f"sources: every row needs 'note' and 'claim' ({sline})")
+        if sline.get("result", "unused") not in SOURCE_RESULTS:
+            err(f"source {note}: result must be one of {sorted(SOURCE_RESULTS)}")
+        if sline.get("result") == "contradicted" and not sline.get("now"):
+            err(f"source {note}: contradicted, so 'now' (what is true instead) is required")
+        for rid in sline.get("used_for") or []:
+            if str(rid) not in row_ids:
+                err(f"source {note}: used_for '{rid}' is not a pillar or decision id")
 
     vocab = L.get("vocabulary") or []
     terms = set()
@@ -641,6 +657,130 @@ def status(src: Path) -> str:
     return "\n".join(lines)
 
 
+def sentence(text):
+    t = " ".join(str(text).split())
+    return t if not t or t[-1] in ".!?" else t + "."
+
+
+def section(md, title):
+    for t, body in split_sections(md):
+        if t == title:
+            return body.strip()
+    return ""
+
+
+def dissolve(src: Path, out: Path, partial: bool = False) -> Path:
+    """Write the feature doc that outlives elih/. Authoritative voice, provenance in frontmatter."""
+    L = load(src)
+    F, M = L["feature"], L.get("metaphor") or {}
+    chunks = sorted(L["chunks"], key=lambda c: c["review_order"])
+    open_chunks = [c["name"] for c in chunks if c["stage"] not in CLOSED_STAGES]
+    if open_chunks and not partial:
+        raise SystemExit("not every chunk is merged or deployed: " + ", ".join(open_chunks) + ". Finish them or pass --partial.")
+    decisions = L.get("decisions") or []
+    settled = [d for d in decisions if d["state"] == "approved"]
+    rejected = [d for d in decisions if d["state"] in ("rejected", "superseded")]
+    unsettled = [d for d in decisions if d["state"] in ("assumed", "recommended", "needs-you")]
+    pillars = L.get("pillars") or []
+    sources = L.get("sources") or []
+    vocab = L.get("vocabulary") or []
+    by_id = {c["id"]: c for c in chunks}
+
+    def yaml_list(items):
+        return "[" + ", ".join(json.dumps(str(i)) for i in items) + "]"
+
+    fm = ["---", f"feature: {F['slug']}", f"title: {json.dumps(F['name'])}",
+          f"as_of: {F.get('status_date')}", f"head: {F.get('head')}",
+          f"complete: {'false' if open_chunks else 'true'}", "graph:",
+          "  read:"]
+    for sl in sources:
+        fm.append(f"    - note: {sl['note']}")
+        fm.append(f"      result: {sl.get('result', 'unused')}")
+        if sl.get("used_for"):
+            fm.append(f"      used_for: {yaml_list(sl['used_for'])}")
+    fm.append(f"  corrects: {yaml_list([sl['note'] for sl in sources if sl.get('result') == 'contradicted'])}")
+    fm.append(f"  introduces: {yaml_list([v['term'] for v in vocab])}")
+    fm.append(f"  decisions: {yaml_list([d['id'] for d in settled if d.get('adr')])}")
+    fm.append("---")
+
+    doc = ["\n".join(fm), "", f"# {F['name']}", "",
+           f"<!-- Written from elih/ledger.yaml at {F.get('head')} when the feature closed. The ledger is gone; edit this file freely. -->",
+           "", str(F.get("goal", "")).strip(), ""]
+    if F.get("done_when"):
+        doc += ["It guarantees:", ""] + [f"- {d}" for d in F["done_when"]] + [""]
+    if M.get("chosen"):
+        doc += [f"The parts are named after a {str(M['chosen']).lower()}. {str(M.get('rationale', '')).strip()}", ""]
+
+    board = (src / "board.md").read_text() if (src / "board.md").exists() else ""
+    secs = split_sections(board)
+    passes = [(t, b) for t, b in secs if not t.lower().startswith("context")]
+    context = [(t, b) for t, b in secs if t.lower().startswith("context")]
+    doc += ["## How it works", ""]
+    if passes:
+        doc += [passes[-1][1].strip(), ""]
+    if context:
+        doc += ["### Who talks to whom", "", context[0][1].strip(), ""]
+
+    for c in chunks:
+        page = (src / "chunks" / f"{c['id']}.md").read_text()
+        doc += [f"## {c['name']}", "", str(c.get("one_liner", "")).strip(), ""]
+        for title in ("What it does", "Why this way", "How it works", "States"):
+            body = section(page, title)
+            if body and body.lower() not in ("none.", "none"):
+                if title != "What it does":
+                    doc += [f"### {title}", ""]
+                doc += [body, ""]
+        if c.get("paths"):
+            doc += ["### Where", ""] + [f"- `{p}`" for p in c["paths"]] + [""]
+        if c["stage"] not in CLOSED_STAGES:
+            doc += [f"_Not finished: stage {c['stage']}. {c.get('stage_note', '')}_", ""]
+
+    doc += ["## Decisions", "",
+            "Each of these was a real choice. The ones with a paragraph are hard to reverse and would surprise a reader without it.", ""]
+    for d in settled:
+        doc += [f"**{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}"]
+        if d.get("why"):
+            doc += ["", "> " + " ".join(str(d["why"]).split())]
+        doc += [""]
+    if rejected:
+        doc += ["### Not done, on purpose", ""] + [f"- **{d['id']}.** {sentence(d['summary'])}" for d in rejected] + [""]
+    if unsettled:
+        doc += ["### Still open", "",
+                "Settle these before relying on the behaviour they describe.", ""]
+        doc += [f"- **{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}" for d in unsettled] + [""]
+
+    held = [p for p in pillars if p["state"] in ("verified", "assumed")]
+    broken = [p for p in pillars if p["state"] == "invalidated"]
+    if held:
+        doc += ["## What this relies on", ""] + [f"- {sentence(p['statement'])}" + (f" ({p['evidence']})" if p.get("evidence") else "") for p in held] + [""]
+    corrections = [sl for sl in sources if sl.get("result") == "contradicted"] 
+    if corrections or broken:
+        doc += ["## What is no longer true", "",
+                "Earlier documentation and assumptions this work overturned.", ""]
+        for sl in corrections:
+            doc += [f"- **{sl['note']}** said: {sentence(sl['claim'])} Now: {sentence(sl['now'])}"]
+        for p in broken:
+            doc += [f"- Assumed: {sentence(p['statement'])} Found: {sentence(p.get('evidence', ''))}"]
+        doc += [""]
+
+    if vocab:
+        doc += ["## Terms", "", "| Term | Meaning | Not called |", "|---|---|---|"]
+        doc += [f"| **{v['term']}** | {v['meaning']} | {', '.join(v.get('avoid') or [])} |" for v in vocab] + [""]
+
+    if sources:
+        doc += ["## Read while building", "",
+                "Notes consulted at kickoff, and whether the work bore them out.", ""]
+        for sl in sources:
+            where = f" ({sl['where']})" if sl.get("where") else ""
+            doc += [f"- {sl['note']}{where}: {sl.get('result', 'unused')}. {sentence(sl['claim'])}"]
+        doc += [""]
+
+    doc += [f"*Review artifact: {F.get('artifact_to_review')}*", ""]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(doc))
+    return out
+
+
 # ----------------------------------------------------------------------------
 
 def main(argv=None):
@@ -651,6 +791,7 @@ def main(argv=None):
     p = sp.add_parser("render"); p.add_argument("dir"); p.add_argument("-o", "--out"); p.add_argument("--no-likec4", action="store_true"); p.add_argument("--png", action="store_true", help="export LikeC4 views as PNG (needs Playwright Chromium) instead of Mermaid")
     p = sp.add_parser("ack"); p.add_argument("dir"); p.add_argument("--date", default=dt.date.today().isoformat())
     p = sp.add_parser("status"); p.add_argument("dir")
+    p = sp.add_parser("dissolve"); p.add_argument("dir"); p.add_argument("-o", "--out", help="doc path; default docs/<slug>.md beside the elih dir"); p.add_argument("--partial", action="store_true", help="allow chunks that are not merged or deployed")
     a = ap.parse_args(argv)
     src = Path(a.dir).resolve()
 
@@ -677,6 +818,15 @@ def main(argv=None):
         return 0
     if a.cmd == "status":
         print(status(src))
+        return 0
+    if a.cmd == "dissolve":
+        errors = [m for lvl, m in lint(src) if lvl == "error"]
+        if errors:
+            print("\n".join("error: " + e for e in errors)); return 1
+        slug = load(src)["feature"]["slug"]
+        out = Path(a.out) if a.out else src.parent / "docs" / f"{slug}.md"
+        print(dissolve(src, out, partial=a.partial))
+        print(f"now: review the doc, then remove {src} in the same commit (git rm -r)")
         return 0
     return 2
 

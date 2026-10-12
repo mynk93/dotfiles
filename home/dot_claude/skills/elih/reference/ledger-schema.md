@@ -50,6 +50,14 @@ decisions:
     why: string                # one to three sentences: context, choice, reason. Required when adr is true, omitted otherwise
     adr_file: path             # optional. Only when the repo already has docs/adr/; the row links to the file
 
+sources:                       # what was read at kickoff, mostly context-graph notes. Keyed by note name, no new ids
+  - note: string               # graph note name (proAgent-disposition-engine), or a path or URL
+    where: string              # optional: repo or system the note lives in
+    claim: string              # the one claim taken from it, in one sentence
+    used_for: [id]             # pillar or decision ids that rest on it
+    result: confirmed | contradicted | unused
+    now: string                # required when contradicted: what is true instead
+
 vocabulary:                    # the style guide. Optional; one row per project term, never general programming words
   - term: string               # the one name for the thing
     meaning: string            # one or two sentences, what it IS, no implementation detail
@@ -66,6 +74,12 @@ changelog:                     # newest first
   - date: YYYY-MM-DD
     what: string               # one line, in the human's vocabulary
 ```
+
+## Sources and dissolution
+
+`sources` is the ledger's memory of what it read before asking anything, so that at the end the feature doc can say which shared understanding it confirmed and which it overturned. One row per claim, not per note. A row goes `contradicted` the moment the work proves it wrong, with `now` stating what is true; that is the same moment a pillar resting on it goes `invalidated`.
+
+When every chunk is `merged` or `deployed`, `elih.py dissolve` writes `docs/<slug>.md` beside the `elih/` directory and the `elih/` directory is removed in the same commit. The doc is written in the present tense as a description of what exists: goal, how it works, one section per chunk, the decisions with their Editor's notes, what the work relies on, what is no longer true, the terms, and the notes read. States, attributions, and review order do not survive; they were for the build. The frontmatter carries `graph.read`, `graph.corrects`, `graph.introduces`, and `graph.decisions` so whoever ingests the doc into the context graph can find the beats without the prose addressing the graph.
 
 ## Editor's notes and the style guide
 

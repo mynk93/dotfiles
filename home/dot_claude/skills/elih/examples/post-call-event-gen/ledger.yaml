@@ -18,7 +18,7 @@ feature:
     - Legacy fields and every customer surface are byte-identical for served tenants
   artifact_to_review: "https://github.com/prodigal-tech/agent-orchestrator/pull/1074"
   branch: feature/post-call-sync-main
-  head: f7bec07
+  head: 441e3b5
   epic: "https://github.com/prodigal-tech/agent-orchestrator/issues/822"
   status_date: 2026-10-12
   last_ack: null   # set by /elih ack; null means never acknowledged
@@ -263,6 +263,24 @@ decisions:
     summary: codex-review is waived for this feature (backend returns 402)
     state: approved
     by: you, 2026-10-06
+
+sources:
+  - note: proAgent-disposition-engine
+    where: prodigal-context-graph
+    claim: Post-call events come from three sources with deterministic-wins precedence (tool-call, transcript, LLM), run in EventCollector.detect_post_call_events
+    used_for: [P4, D-33]
+    result: contradicted
+    now: For a promoted tenant end_call skips the clerk entirely; the sorter's sources are ambient metadata, conved, and the tenant's field guide, with no LLM pass
+  - note: prodigal-glossary
+    where: prodigal-context-graph
+    claim: The tenant table lists every served proAgent tenant by code; CAM is not among them
+    used_for: [D-35]
+    result: confirmed
+  - note: proAgent-FBT
+    where: prodigal-context-graph
+    claim: FBT assertions read the per-call event list, so event names are a contract with the regression suite
+    used_for: [C-4]
+    result: confirmed
 
 vocabulary:
   - term: tenant
