@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""elih: render, lint, scaffold and acknowledge an ELIH orientation surface.
+"""elih: scaffold, lint, render, acknowledge and dissolve an ELIH board.
 
     elih.py init   <elih-dir> --feature <slug> [--name <title>]
     elih.py lint   <elih-dir>
