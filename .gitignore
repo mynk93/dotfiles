@@ -18,4 +18,3 @@ CLAUDE.md
 
 # Git worktrees live in-repo and are ephemeral
 .worktrees/
-elih/out/

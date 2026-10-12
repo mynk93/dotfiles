@@ -23,7 +23,7 @@ Same views, same order, same colours on every page. The set is lifted from ISO/I
 6. **Decisions and assumptions on this chunk.** Generated from the ledger; the page carries the placeholder line `Filled from the ledger by chunk id.` and the renderer replaces it.
 7. **Review entry points.** Numbered, at most three, each one file or function and the question to ask of it.
 
-Two views in the standard that the example does not carry yet, and that belong on the deployment-type chunk: a **component view** (C4 level 3) and a **deployment view**. Add them when the chunk exists.
+Two further views from the standard belong on a deployment-type chunk when one exists: a **component view** (C4 level 3) and a **deployment view**.
 
 ## Mermaid conventions
 

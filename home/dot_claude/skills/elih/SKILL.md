@@ -32,7 +32,7 @@ elih/
 docs/<slug>.md       what elih/ becomes on dissolve; elih/ is removed in the same commit
 ```
 
-The ledger schema, states, stage rules, Editor's notes and the style guide are in [`reference/ledger-schema.md`](reference/ledger-schema.md). The kickoff interview is [`reference/grilling.md`](reference/grilling.md). Templates are in `templates/`. A worked example, built retroactively on a real 15-day feature, is in `examples/post-call-event-gen/`.
+The ledger schema, states, stage rules, Editor's notes and the style guide are in [`reference/ledger-schema.md`](reference/ledger-schema.md). The kickoff interview is [`reference/grilling.md`](reference/grilling.md). Templates are in `templates/`.
 
 The script is `scripts/elih.py` (Python 3.9+, PyYAML); `--help` lists the subcommands.
 
