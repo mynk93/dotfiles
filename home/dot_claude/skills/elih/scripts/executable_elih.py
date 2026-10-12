@@ -548,6 +548,7 @@ def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False) -> 
         set_feature_field(src, "head", head)
 
     views_dir = src / "out" / "views"
+    shutil.rmtree(views_dir, ignore_errors=True)   # a failed or skipped export falls back to the source blocks, never to last time's files
     if use_likec4 and (src / "model.c4").exists():
         export_likec4(src, views_dir, png=png)
 
@@ -611,6 +612,7 @@ def export_likec4(src: Path, views_dir: Path, png: bool = False):
     cmd = ["npx", "--yes", "likec4"] + (["export", "png"] if png else ["gen", "mermaid"]) + ["-o", str(views_dir), str(src)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if r.returncode != 0:
+        shutil.rmtree(views_dir, ignore_errors=True)
         hint = " Run `npx playwright install chromium` for PNG export." if png and "playwright" in (r.stderr + r.stdout).lower() else ""
         print(f"likec4 {' '.join(cmd[3:5])} failed; falling back to the Mermaid blocks in the source.{hint}\n{r.stderr[-600:]}", file=sys.stderr)
 
@@ -647,7 +649,7 @@ def status(src: Path) -> str:
     need = blocked_on_you(L)
     lines += [f"- [{st}] {i}: {t} ({cname})" for st, i, t, _, cname in need] or ["- nothing"]
     ack_date, changes = changes_since_ack(L)
-    lines += ["", f"## Since {'ack ' + ack_date if ack_date else 'the start'}"]
+    lines += ["", f"## Since {'ack ' + str(ack_date) if ack_date else 'the start'}"]
     lines += [f"- {c['date']} {c['what']}" for c in changes] or ["- nothing new"]
     lines += ["", "## Chunks (review order)"]
     for c in sorted(L["chunks"], key=lambda c: c["review_order"]):
@@ -655,6 +657,11 @@ def status(src: Path) -> str:
     lines += ["", "## Pillars"]
     lines += [f"- {p['id']} [{p['state']}] {p['statement']}" for p in L.get("pillars") or []]
     return "\n".join(lines)
+
+
+def note(d):
+    """The Editor's note as a quoted paragraph, or nothing."""
+    return ["", "> " + " ".join(str(d["why"]).split())] if d.get("why") else []
 
 
 def sentence(text):
@@ -738,16 +745,22 @@ def dissolve(src: Path, out: Path, partial: bool = False) -> Path:
     doc += ["## Decisions", "",
             "Each of these was a real choice. The ones with a paragraph are hard to reverse and would surprise a reader without it.", ""]
     for d in settled:
-        doc += [f"**{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}"]
-        if d.get("why"):
-            doc += ["", "> " + " ".join(str(d["why"]).split())]
-        doc += [""]
+        doc += [f"**{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}"] + note(d) + [""]
     if rejected:
-        doc += ["### Not done, on purpose", ""] + [f"- **{d['id']}.** {sentence(d['summary'])}" for d in rejected] + [""]
-    if unsettled:
+        doc += ["### Not done, on purpose", ""]
+        for d in rejected:
+            doc += [f"- **{d['id']}.** {sentence(d['summary'])}"] + note(d)
+        doc += [""]
+    # F1: an unanswered pillar is the most important open item, so it leads this list
+    open_pillars = [p for p in pillars if p["state"] == "needs-you"]
+    if unsettled or open_pillars:
         doc += ["### Still open", "",
                 "Settle these before relying on the behaviour they describe.", ""]
-        doc += [f"- **{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}" for d in unsettled] + [""]
+        doc += [f"- **{p['id']}** ({by_id[p['chunk']]['name']}). Unconfirmed: {sentence(p['statement'])}"
+                + (f" What would settle it: {sentence(p['evidence'])}" if p.get("evidence") else "") for p in open_pillars]
+        for d in unsettled:
+            doc += [f"- **{d['id']}** ({by_id[d['chunk']]['name']}). {sentence(d['summary'])}"] + note(d)
+        doc += [""]
 
     held = [p for p in pillars if p["state"] in ("verified", "assumed")]
     broken = [p for p in pillars if p["state"] == "invalidated"]
@@ -815,6 +828,7 @@ def main(argv=None):
         return 0
     if a.cmd == "ack":
         ack(src, a.date)
+        print(render(src, src / "out" / "index.html"))
         return 0
     if a.cmd == "status":
         print(status(src))
