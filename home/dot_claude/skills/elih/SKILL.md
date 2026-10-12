@@ -30,7 +30,7 @@ elih/
   out/               generated HTML and PNGs; gitignored
 ```
 
-Schema and states: [`reference/ledger-schema.md`](reference/ledger-schema.md). Kickoff interview: [`reference/grilling.md`](reference/grilling.md). Templates in `templates/`.
+Schema and states: [`reference/ledger-schema.md`](reference/ledger-schema.md). Kickoff interview: [`reference/grilling.md`](reference/grilling.md). Vocabulary and Editor's notes: the "Editor's notes and the style guide" section of the schema. Templates in `templates/`.
 
 The script is `scripts/elih.py` (Python 3.9+, PyYAML). Subcommands: `init`, `lint`, `render`, `ack`, `status`.
 
@@ -42,7 +42,7 @@ Fires on "set up elih", "kick off", or when a feature has requirements but no `e
 
 1. Read the requirements and the repo. Look up every fact you can before asking anything.
 2. **Grill the human.** Run a grilling session per [`reference/grilling.md`](reference/grilling.md): invoke the `grilling` skill if it is available, else follow the vendored protocol. Root the design tree in the seed questions on that page: goal and first release, the three metaphors with chunk names (at most seven, concrete nouns from the metaphor's world), pillars, what exists and must not change, who else reads the board, the autonomy setting, the review artifact and order. Ask each frontier in one round with a recommended answer per question. Stop when the frontier is empty or the human says "enough".
-3. **Land every answer in the ledger.** Accepted recommendations become `approved` decisions with the question number in `by`. "You decide" becomes `assumed`. "I don't know" becomes `needs-you`. Questions left unasked when the human stopped early become `needs-you` rows, never dropped. The chosen metaphor is frozen; a later rename needs a changelog row.
+3. **Land every answer in the ledger.** Accepted recommendations become `approved` decisions with the question number in `by`. "You decide" becomes `assumed`. "I don't know" becomes `needs-you`. Questions left unasked when the human stopped early become `needs-you` rows, never dropped. Terms sharpened during the interview become `vocabulary` rows. A decision that is hard to reverse, surprising without context, and a real trade-off gets `adr: true` and a one-to-three-sentence `why`. The chosen metaphor is frozen; a later rename needs a changelog row.
 4. Run `elih.py init <dir> --feature <slug>` to scaffold, then fill `ledger.yaml`, `board.md` with pass 0 (today) and one pass per chunk, and one `chunks/<id>.md` per chunk. Empty sections are allowed at kickoff but must say "not built yet", never be deleted.
 5. If `npx likec4` is available, write `model.c4` with the systems, the new deployable, and the stores. One `view` for the board context and one scoped `view` per chunk.
 6. `elih.py lint` must pass. `elih.py render`. Show the human the board.
@@ -52,7 +52,7 @@ Done when: the human confirmed shared understanding (or stopped the grilling and
 ### B. Per-run update (end of every run that changed code or plan)
 
 1. For each chunk touched: update `stage`, `stage_note`, `paths`, `size`. A chunk's stage drops back to `tested` when its files change after the review that earned `reviewed`.
-2. Every choice made this run becomes a ledger row: `assumed` if the agent chose and moved on, `recommended` if it wants the human's answer, `needs-you` if it cannot proceed. Cite the chunk. One sentence.
+2. Every choice made this run becomes a ledger row: `assumed` if the agent chose and moved on, `recommended` if it wants the human's answer, `needs-you` if it cannot proceed. Cite the chunk. One sentence, plus a collapsed `why` only when the ADR gate holds. New terms go in `vocabulary`; lint warns when prose uses a word the style guide avoids.
 3. Every subagent handback: fold its decisions into the ledger under the main agent's name, and its findings into the chunk page.
 4. Append changelog rows for what moved. Dated, one line each, in the human's words not the agent's.
 5. Re-check every pillar against what was learned. A pillar found false becomes `invalidated` with the evidence, and the board shows it first.

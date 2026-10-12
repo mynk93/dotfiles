@@ -45,6 +45,12 @@ pillars:
     chunk: first-chunk
 
 decisions: []
+  # Add `adr: true` + `why:` on a row only when it is hard to reverse, surprising without context, and a real trade-off.
+
+vocabulary: []
+  # - term: ""         # one name per thing
+  #   meaning: ""      # what it IS, no implementation detail
+  #   avoid: []        # words lint will warn about in board.md and chunk pages
 
 blockers: []
 

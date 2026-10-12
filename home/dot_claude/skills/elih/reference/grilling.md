@@ -35,6 +35,15 @@ Finding **facts** is your job, never the human's. When a frontier question needs
 
 The session is done when the frontier is empty: every branch visited, nothing left silently assumed. Do not scaffold until the human confirms you have reached a shared understanding.
 
+## Fact-check: four disciplines during the interview
+
+Adopted from Pocock's `domain-modeling` skill. They run inside every round, not as a separate step.
+
+1. **Challenge against the style guide.** When the human uses a word that conflicts with a `vocabulary` row, say so at once: "The ledger calls that a tenant; you seem to mean a handler. Which?"
+2. **Sharpen fuzzy words.** When a term is vague or overloaded, propose one canonical term and the words to avoid. "By 'account' do you mean the Customer or the User?"
+3. **Stress-test with scenarios.** When a relationship or boundary is being settled, invent a concrete case that probes its edge and ask what happens. Scenarios sharpen the question; they are not recorded on their own.
+4. **Cross-reference with code.** When the human states how something works, check the repo. If the code disagrees, quote both sides and ask which is right.
+
 ## The elih seed tree
 
 Root the tree in the questions the ledger needs answered. Everything else branches from these.
@@ -63,6 +72,10 @@ Nothing said in the interview stays only in chat. After the human confirms share
 | Human said "I don't know" or "ask <someone>" | pillar if it stops the plan, else decision, `state: needs-you`, with the open question as the summary |
 | A fact the agent looked up settled a question | pillar `state: verified` with the evidence, or the fact goes in the chunk page, no decision row |
 | Human ended the session before the frontier was empty | every unasked frontier question becomes a `needs-you` row; none are dropped |
+| A term was sharpened or a conflict resolved | `vocabulary` row on the spot: term, meaning, avoid |
+| A scenario exposed a boundary | a `done_when` line, or a pillar if the plan stands on it; no row of its own |
+| The code contradicted what the human said | decision, `state: needs-you`, summary quotes both sides |
+| A settled decision is hard to reverse, surprising, and a real trade-off | the row gets `adr: true` and a one-to-three-sentence `why` (an Editor's note) |
 
 Quote the human where their wording carries intent. Keep each summary to one sentence: the choice and the alternative it beat.
 
