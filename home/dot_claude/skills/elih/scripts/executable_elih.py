@@ -140,10 +140,10 @@ def lint(src: Path) -> list:
         if s.startswith("#") or ":" not in s:
             continue
         val = s.split(":", 1)[1].strip()
-        before = val.split(" #", 1)[0].strip().lower()
-        if val and " #" in val and not val.startswith(("'", '"', ">", "|", "[", "{")) \
-                and before not in {"null", "~", "true", "false", ""} and not re.match(r"^-?\d+(\.\d+)?$", before):
-            warn(f"ledger.yaml:{n}: unquoted value contains ' #'; everything after it is a YAML comment")
+        # The trap is an unquoted issue/PR ref ("PR #123"): one space, then "#<digits>".
+        # Aligned comments ("key: value   # note") are fine and are left alone.
+        if val and re.search(r"\S #\d", val) and not val.startswith(("'", '"', ">", "|", "[", "{")):
+            warn(f"ledger.yaml:{n}: unquoted value contains ' #<number>'; everything after ' #' is a YAML comment")
 
     board = src / "board.md"
     if not board.exists():

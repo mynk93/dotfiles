@@ -30,7 +30,7 @@ elih/
   out/               generated HTML and PNGs; gitignored
 ```
 
-Schema and states: [`reference/ledger-schema.md`](reference/ledger-schema.md). Templates in `templates/`. A complete worked example, built retroactively on a real 15-day feature, in `examples/post-call-event-gen/`.
+Schema and states: [`reference/ledger-schema.md`](reference/ledger-schema.md). Kickoff interview: [`reference/grilling.md`](reference/grilling.md). Templates in `templates/`. A complete worked example, built retroactively on a real 15-day feature, in `examples/post-call-event-gen/`.
 
 The script is `scripts/elih.py` (Python 3.9+, PyYAML). Subcommands: `init`, `lint`, `render`, `ack`, `status`.
 
@@ -40,14 +40,14 @@ The script is `scripts/elih.py` (Python 3.9+, PyYAML). Subcommands: `init`, `lin
 
 Fires on "set up elih", "kick off", or when a feature has requirements but no `elih/` directory.
 
-1. Read the requirements. Write the goal and the done-when list.
-2. Propose **three metaphors**, each with its chunk names (at most seven). Keep names concrete nouns from the metaphor's world. Ask the human to pick one. Freeze it. A later rename needs a changelog row.
-3. List the **pillars**: the three to six assumptions whose falsity stops everything. Each gets a state. Anything the human has not confirmed is `needs-you`.
+1. Read the requirements and the repo. Look up every fact you can before asking anything.
+2. **Grill the human.** Run a grilling session per [`reference/grilling.md`](reference/grilling.md): invoke the `grilling` skill if it is available, else follow the vendored protocol. Root the design tree in the seed questions on that page: goal and first release, the three metaphors with chunk names (at most seven, concrete nouns from the metaphor's world), pillars, what exists and must not change, who else reads the board, the autonomy setting, the review artifact and order. Ask each frontier in one round with a recommended answer per question. Stop when the frontier is empty or the human says "enough".
+3. **Land every answer in the ledger.** Accepted recommendations become `approved` decisions with the question number in `by`. "You decide" becomes `assumed`. "I don't know" becomes `needs-you`. Questions left unasked when the human stopped early become `needs-you` rows, never dropped. The chosen metaphor is frozen; a later rename needs a changelog row.
 4. Run `elih.py init <dir> --feature <slug>` to scaffold, then fill `ledger.yaml`, `board.md` with pass 0 (today) and one pass per chunk, and one `chunks/<id>.md` per chunk. Empty sections are allowed at kickoff but must say "not built yet", never be deleted.
 5. If `npx likec4` is available, write `model.c4` with the systems, the new deployable, and the stores. One `view` for the board context and one scoped `view` per chunk.
 6. `elih.py lint` must pass. `elih.py render`. Show the human the board.
 
-Done when: the human picked the metaphor, every pillar has a state, lint passes, and the board renders.
+Done when: the human confirmed shared understanding (or stopped the grilling and the leftover frontier is on the board), the metaphor is frozen, every pillar has a state, lint passes, and the board renders.
 
 ### B. Per-run update (end of every run that changed code or plan)
 
@@ -86,4 +86,4 @@ Change it only when the human says so, with a changelog row.
 
 ## What elih is not
 
-It is not the PR description, the design doc, or the changelog. Those are L2. It links to them. When content would fit in a chunk page or in a design doc, the design doc wins and the chunk page links to the section.
+It is not the PR description, the design doc, or the changelog. Those are L2. It links to them. It is not a standing interview either: grilling runs once at kickoff, and later questions wait on the board as rows. When content would fit in a chunk page or in a design doc, the design doc wins and the chunk page links to the section.
