@@ -47,6 +47,12 @@ pillars:
 decisions: []
   # Add `adr: true` + `why:` on a row only when it is hard to reverse, surprising without context, and a real trade-off.
 
+sources: []
+  # - note: proAgent-architecture      # context-graph note (or path/URL) read at kickoff
+  #   claim: ""                        # the one claim taken from it
+  #   used_for: [P1]                   # pillar or decision ids resting on it
+  #   result: confirmed                # confirmed | contradicted | unused; contradicted needs `now:`
+
 vocabulary: []
   # - term: ""         # one name per thing
   #   meaning: ""      # what it IS, no implementation detail
