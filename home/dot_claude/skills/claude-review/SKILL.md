@@ -1,11 +1,11 @@
 ---
-name: fable-review
-description: "Use when the branch/PR should get an adversarial bug hunt from a fresh Fable 5.1 session — headless `claude` pinned to claude-fable-5-1 at high effort, in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security. No design or style commentary. The main agent triages findings with session context, gates fixes on user approval, can question the same review session, and closes the run by resuming that session to sign the applied fixes off. Triggers on 'fable-review', 'fable review', 'have fable review this', 'fresh-eyes review', 'second opinion from fable', 'adversarial fable pass'. Complements pr-sanity (legibility), /code-review (same-session review), and codex-review (cross-model review)."
+name: claude-review
+description: "Use when the branch/PR should get an adversarial bug hunt from a fresh Opus 5.5 session — headless `claude` pinned to claude-opus-5-5 at high effort, in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security. No design or style commentary. The main agent triages findings with session context, gates fixes on user approval, can question the same review session, and closes the run by resuming that session to sign the applied fixes off. Triggers on 'claude-review', 'claude review', 'opus review', 'have opus review this', 'fresh-eyes review', 'second opinion from opus', 'adversarial opus pass'. Complements pr-sanity (legibility), /code-review (same-session review), and codex-review (cross-model review)."
 ---
 
-# fable-review
+# claude-review
 
-An adversarial bug hunt by a fresh Fable 5.1 session. The reviewer gets an
+An adversarial bug hunt by a fresh Opus 5.5 session. The reviewer gets an
 isolated checkout with full context on disk (diff, PR body, linked issues, the
 full tree at branch HEAD) and a mandate to disprove the change. It shares
 nothing with the authoring session: no memory of the design discussion, no
@@ -16,7 +16,7 @@ session to have the fixes signed off in turn, which is a required step rather
 than an offer.
 
 The reviewer runs through the plain `claude` CLI in headless mode with the
-model pinned to `claude-fable-5-1`. No wrapper or proxy is involved.
+model pinned to `claude-opus-5-5`. No wrapper or proxy is involved.
 
 ## Principles
 
@@ -44,7 +44,7 @@ model pinned to `claude-fable-5-1`. No wrapper or proxy is involved.
    questions (step 6) carry a soft cap of about 3 rounds; sign-off rounds
    (step 8) do not, because they end on the user's approval gate rather than on
    a convention. No second reviewer, no Workflow tool, no dynamic agent
-   spawning. Fable 5.1 on a real diff is the dominant cost of the run, which is
+   spawning. Opus 5.5 on a real diff is the dominant cost of the run, which is
    the reason for the follow-up cap. That cap bounds orchestrator rounds; the reviewer
    itself can still fan out through the Agent tool. Add `--disallowedTools
    Agent` to the launch when a run needs a hard ceiling rather than a
@@ -53,7 +53,7 @@ model pinned to `claude-fable-5-1`. No wrapper or proxy is involved.
    runs with `--permission-mode bypassPermissions` so it can execute code to
    prove a trigger instead of asserting one; executed triggers make sharper
    findings. Be clear-eyed about the containment: scratch files under the
-   worktree die at cleanup, but the worktree sits at `.worktrees/fable-review`
+   worktree die at cleanup, but the worktree sits at `.worktrees/claude-review`
    inside the repo, so the primary checkout is reachable two levels up;
    worktrees share the ref store and object database, so a `git update-ref`,
    `branch -f`, or `tag` survives `worktree remove`; and the prompt's "no
@@ -83,8 +83,8 @@ worktree at launch so the pane's redirect stays inside the disposable tree.
   commit first.
 - Ensure `.worktrees/` is in the repo's `.gitignore` (add it if missing).
 - Remove a stale worktree from a previous run:
-  `git worktree remove --force .worktrees/fable-review` — if the registration
-  was already pruned, `git worktree prune && rm -rf .worktrees/fable-review`.
+  `git worktree remove --force .worktrees/claude-review` — if the registration
+  was already pruned, `git worktree prune && rm -rf .worktrees/claude-review`.
 - `claude` must be on PATH. Auth problems surface in `err.log` and a non-zero
   `rc`, so no separate health check is needed.
 
@@ -117,12 +117,31 @@ if ! BASE=$(git merge-base "origin/$TARGET" HEAD) || [ -z "$BASE" ]; then
   exit 1
 fi
 
-git worktree add --detach .worktrees/fable-review HEAD
-mkdir -p .worktrees/fable-review/.review/out
-git diff "$BASE"..HEAD > .worktrees/fable-review/.review/diff.patch
-cp ~/.claude/skills/fable-review/prompts/review.md \
-   .worktrees/fable-review/.review/prompt.md
+git worktree add --detach .worktrees/claude-review HEAD
+mkdir -p .worktrees/claude-review/.review/out
+git diff "$BASE"..HEAD > .worktrees/claude-review/.review/diff.patch
+# The repo's own review rules, read by the reviewer before the diff: REVIEW.md
+# and, for every changed path, the nearest AGENTS.md at or above it. The
+# checkout already holds them; the list makes sure the reviewer opens them.
+{
+  [ -f REVIEW.md ] && echo REVIEW.md
+  git diff --name-only "$BASE"..HEAD | while read -r f; do
+    d=$(dirname "$f")
+    until [ -f "$d/AGENTS.md" ] || [ "$d" = . ]; do d=$(dirname "$d"); done
+    [ -f "$d/AGENTS.md" ] && echo "$d/AGENTS.md"
+  done
+} | sed 's|^\./||' | sort -u > .worktrees/claude-review/.review/rules.txt
+cp ~/.claude/skills/claude-review/prompts/review.md \
+   .worktrees/claude-review/.review/prompt.md
 ```
+
+`rules.txt` exists because the worktree being a full checkout puts the repo's
+agent docs on disk but does not make the reviewer read them. A Claude session
+loads an area guide only when it reads a file in that directory, and Codex
+loads only the `AGENTS.md` files between the repo root and its working
+directory, so a guide like `.github/AGENTS.md` or a `REVIEW.md` stays unread
+unless the prompt sends the reviewer there. An empty `rules.txt` is fine: the
+repo has no rules of its own.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
@@ -135,14 +154,14 @@ With cmux (`CMUX_SOCKET_PATH` set) — one sidecar split; the main session keeps
 its full-height pane (using-cmux orchestrator pattern):
 
 ```bash
-WT=<absolute path to .worktrees/fable-review>
+WT=<absolute path to .worktrees/claude-review>
 SID=$(uuidgen | tr 'A-Z' 'a-z')   # pin it now; follow-ups resume this exact id
 echo "$SID" > "$WT/.review/out/sid"
 
 # UUID handle: review runs are long and surface:N refs renumber if workspaces close
 REV=$(CMUX_QUIET=1 cmux --id-format uuids new-split right | awk '/^OK/{print $2}')
-cmux rename-tab --surface "$REV" "fable-review"
-cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; claude --model claude-fable-5-1 --effort high --session-id $SID --permission-mode bypassPermissions --output-format stream-json --verbose -p < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | select(.type==\"assistant\") | .message.content[]? | if .type==\"text\" then .text elif .type==\"tool_use\" then \"→ \\(.name)\" else empty end'; echo \$? > .review/out/rc\n"
+cmux rename-tab --surface "$REV" "claude-review"
+cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; claude --model claude-opus-5-5 --effort high --session-id $SID --permission-mode bypassPermissions --output-format stream-json --verbose -p < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | select(.type==\"assistant\") | .message.content[]? | if .type==\"text\" then .text elif .type==\"tool_use\" then \"→ \\(.name)\" else empty end'; echo \$? > .review/out/rc\n"
 
 echo "WT=$WT SID=$SID REV=$REV"   # carry these forward — see below
 ```
@@ -213,7 +232,7 @@ with the Write tool, then resume by pinned id:
 
 ```bash
 # Write tool → $WT/.review/followup-<n>.txt
-cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/followup-<n>.txt > .review/out/followup-<n>.json 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
+cmux send --surface "$REV" "claude --model claude-opus-5-5 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/followup-<n>.txt > .review/out/followup-<n>.json 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
 ```
 
 `--resume $SID` targets this exact session — no cwd filtering, no
@@ -274,7 +293,7 @@ GIT_INDEX_FILE="$TMP_INDEX" git diff --cached HEAD > "$WT/.review/fixes-$R.patch
 #   "Fixes were applied for your accepted findings — see .review/fixes-<R>.patch.
 #    For each finding F<n>: addressed / not addressed / new concern, one line each.
 #    Read the files at their current state; do not judge from the patch alone."
-cmux send --surface "$REV" "claude --model claude-fable-5-1 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/verdict-prompt-$R.txt > .review/out/verdict-$R.json 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
+cmux send --surface "$REV" "claude --model claude-opus-5-5 --effort high --resume $SID --permission-mode bypassPermissions --output-format json -p < .review/verdict-prompt-$R.txt > .review/out/verdict-$R.json 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
 ```
 
 Fixes stay uncommitted and HEAD never moves, so each round's patch is
@@ -311,7 +330,7 @@ waiter: SIGINT aborts the whole submitted line in interactive zsh, so
 minutes on a run that is already dead. Then:
 
 ```bash
-git worktree remove --force .worktrees/fable-review
+git worktree remove --force .worktrees/claude-review
 ```
 
 Everything the run wrote *as files* — `prompt.md`, `diff.patch`, `raw.jsonl`,
@@ -324,4 +343,4 @@ ref it created in the shared object store. If a run looked like it wandered,
 nothing lands in the primary checkout except the applied fixes (left
 uncommitted); the step-8 patch used a throwaway index, so the primary index is
 untouched. Single-shot by design: for a fresh adversarial pass after
-committing fixes, rerun `/fable-review`.
+committing fixes, rerun `/claude-review`.
