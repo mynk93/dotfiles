@@ -1,11 +1,11 @@
 ---
 name: codex-review
-description: "Use when the branch/PR should get an adversarial review from a different model — GPT-6 Astra at high effort, driven through the Codex CLI (`codex exec`) in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security — no design or style commentary. The main agent triages the findings with session context, gates fixes on user approval, can interrogate the same review session, and closes the run by resuming that session to sign the applied fixes off. Triggers on 'codex-review', 'codex review', 'astra review', 'adversarial review', 'second opinion on this PR', 'have codex/gpt look at this', 'cross-model review'. Complements pr-sanity (legibility) and /code-review (same-model review)."
+description: "Use when the branch/PR should get an adversarial review from a different model — GPT-6.1 Sol at high effort, driven through the Codex CLI (`codex exec`) in a visible cmux pane over a disposable review worktree. Bugs only: correctness, edge cases, races, data loss, security — no design or style commentary. The main agent triages the findings with session context, gates fixes on user approval, can interrogate the same review session, and closes the run by resuming that session to sign the applied fixes off. Triggers on 'codex-review', 'codex review', 'sol review', 'adversarial review', 'second opinion on this PR', 'have codex/gpt look at this', 'cross-model review'. Complements pr-sanity (legibility) and /code-review (same-model review)."
 ---
 
 # codex-review
 
-An adversarial bug hunt by a different model family. GPT-6 Astra gets an
+An adversarial bug hunt by a different model family. GPT-6.1 Sol gets an
 isolated checkout with full context — diff, PR body, linked issues, the whole
 tree at branch HEAD — and a mandate to break confidence in the change. The main
 agent, which holds session context the reviewer lacks, triages the findings,
@@ -21,7 +21,7 @@ which is a wider gap than sharing a harness could give.
 ## Principles
 
 1. **Cross-model adversarialism is the product.** The authoring model shares
-   blind spots with itself; a different model family attacks differently. Astra
+   blind spots with itself; a different model family attacks differently. Sol
    gets *full* context (this is not a cold read — pr-sanity owns that) but zero
    deference: its prompt forbids giving the change any benefit of the doubt.
 2. **Bugs only.** Implementation defects — correctness, edge cases, races,
@@ -40,7 +40,7 @@ which is a wider gap than sharing a harness could give.
    fix for it, holding its own evidence rather than re-deriving it. Follow-up
    questions (step 6) carry a soft cap of ~3 rounds; sign-off rounds (step 8)
    do not, because they end on the user's approval gate rather than on a
-   convention. One reviewer, one session, no fan-out. Astra at high effort on a
+   convention. One reviewer, one session, no fan-out. Sol at high effort on a
    real diff is the dominant cost of the run and bills straight to the Codex
    plan through the CLI's own credentials — that is the reason for the cap. The
    cap bounds *orchestrator* rounds, not the reviewer's own fan-out. Keep the
@@ -133,6 +133,17 @@ for RUNTIME in .venv node_modules; do
   [ -e "$RUNTIME" ] && ln -s "$PWD/$RUNTIME" ".worktrees/codex-review/$RUNTIME"
 done
 git diff "$BASE"..HEAD > .worktrees/codex-review/.review/diff.patch
+# The repo's own review rules, read by the reviewer before the diff: REVIEW.md
+# and, for every changed path, the nearest AGENTS.md at or above it. The
+# checkout already holds them; the list makes sure the reviewer opens them.
+{
+  [ -f REVIEW.md ] && echo REVIEW.md
+  git diff --name-only "$BASE"..HEAD | while read -r f; do
+    d=$(dirname "$f")
+    until [ -f "$d/AGENTS.md" ] || [ "$d" = . ]; do d=$(dirname "$d"); done
+    [ -f "$d/AGENTS.md" ] && echo "$d/AGENTS.md"
+  done
+} | sed 's|^\./||' | sort -u > .worktrees/codex-review/.review/rules.txt
 cp ~/.claude/skills/codex-review/prompts/review.md \
    .worktrees/codex-review/.review/prompt.md
 ```
@@ -143,6 +154,14 @@ script commonly installs rather than links and this step has to stay a pure
 symlink; and `.env*` is left behind, because a hostile reviewer has
 no business holding the secrets. What the links do and do not permit belongs to
 the reviewer, so it lives in `prompts/review.md`'s `<sandbox>` block.
+
+`rules.txt` exists because the worktree being a full checkout puts the repo's
+agent docs on disk but does not make the reviewer read them. A Claude session
+loads an area guide only when it reads a file in that directory, and Codex
+loads only the `AGENTS.md` files between the repo root and its working
+directory, so a guide like `.github/AGENTS.md` or a `REVIEW.md` stays unread
+unless the prompt sends the reviewer there. An empty `rules.txt` is fine: the
+repo has no rules of its own.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
@@ -160,7 +179,7 @@ WT=<absolute path to .worktrees/codex-review>
 # UUID handle: high-effort runs are long and surface:N refs renumber if workspaces close
 REV=$(CMUX_QUIET=1 cmux --id-format uuids new-split right | awk '/^OK/{print $2}')
 cmux rename-tab --surface "$REV" "codex-review"
-cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; codex exec --json --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/result.md - < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | if .type==\"item.completed\" then (.item.text // (\"→ \" + .item.type)) else empty end'; echo \$? > .review/out/rc\n"
+cmux send --surface "$REV" "cd \"$WT\" && set -o pipefail; codex exec --json --model gpt-6.1-sol -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/result.md - < .review/prompt.md 2> .review/out/err.log | tee .review/out/raw.jsonl | jq -Rr --unbuffered 'fromjson? | if .type==\"item.completed\" then (.item.text // (\"→ \" + .item.type)) else empty end'; echo \$? > .review/out/rc\n"
 
 echo "WT=$WT REV=$REV"   # carry these forward — see below
 ```
@@ -251,7 +270,7 @@ with the Write tool, then resume by pinned id:
 
 ```bash
 # Write tool → $WT/.review/followup-<n>.txt
-cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/followup-<n>.md - < .review/followup-<n>.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
+cmux send --surface "$REV" "codex exec resume $SID --model gpt-6.1-sol -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/followup-<n>.md - < .review/followup-<n>.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-followup-<n>\n"
 ```
 
 `resume $SID` targets this exact thread. Codex also offers `resume --last`;
@@ -314,7 +333,7 @@ GIT_INDEX_FILE="$TMP_INDEX" git diff --cached HEAD > "$WT/.review/fixes-$R.patch
 #   "Fixes were applied for your accepted findings — see .review/fixes-<R>.patch.
 #    For each finding F<n>: addressed / not addressed / new concern, one line each.
 #    Read the files at their current state; do not judge from the patch alone."
-cmux send --surface "$REV" "codex exec resume $SID --model gpt-6-astra -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/verdict-$R.md - < .review/verdict-prompt-$R.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
+cmux send --surface "$REV" "codex exec resume $SID --model gpt-6.1-sol -c model_reasoning_effort=\"high\" -c sandbox_mode=\"workspace-write\" -c approval_policy=\"never\" -o .review/out/verdict-$R.md - < .review/verdict-prompt-$R.txt 2>> .review/out/err.log; echo \$? > .review/out/rc-verdict-$R\n"
 ```
 
 Fixes stay uncommitted and HEAD never moves, so each round's patch is
