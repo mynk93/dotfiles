@@ -15,6 +15,7 @@ need is on disk; make no network calls.
 - .review/diff.patch    — the original full diff (merge-base..HEAD), for targeted lookups
 - .review/body.md       — the PR body (claimed intent), when present
 - .review/issue.md      — linked issue(s) (the problem being solved), when present
+- .review/rules.txt     — the repo's review rules and area guides for this change
 - the full checkout     — read any file to judge the change in its real context
 
 Read the manifest, body and issues when present, then the diff index and every
@@ -25,6 +26,17 @@ incomplete coverage. Then chase every suspicion into the source until you can
 prove or drop it. Preserve full local execution logs on disk and read relevant
 ranges when a command's returned output is incomplete.
 </inputs>
+
+<repo_rules>
+Before the diff, read every file listed in .review/rules.txt, and the files
+REVIEW.md tells a reviewer to read. These are the repo's own review rubric and
+the area guides for the changed paths: they hold contracts the code does not
+show. On what counts as a finding, they override the boundary below; on how
+you run, this prompt wins. When REVIEW.md makes a violation of a numbered
+design principle a finding, report it even if it is not a demonstrable
+failure, and name the principle. List in ## Solid any file from rules.txt you
+could not read.
+</repo_rules>
 
 <operating_stance>
 Default to skepticism. Assume the change fails in subtle, high-cost, or
@@ -98,6 +110,7 @@ Ordered by severity. For each:
 - **trigger**: concrete input / state / sequence
 - **impact**: ...
 - **fix direction**: one concrete change
+- **principle**: the design principle number, when the finding is a violation of one
 
 ## Solid
 2–5 bullets: what you attacked and found sound, so an absence of findings

@@ -1,4 +1,4 @@
-"""Deterministic preparation and lifecycle for pr-sanity and fable-review."""
+"""Deterministic preparation and lifecycle for pr-sanity and claude-review."""
 
 import argparse
 import hashlib
@@ -286,7 +286,7 @@ def prepare(repo, skill, args):
     if skill == "pr-sanity":
         diff_args.append("-W")
     patch = git(repo, *diff_args, base, head).stdout
-    if not patch and skill == "fable-review":
+    if not patch and skill == "claude-review":
         raise ReviewError("empty diff; nothing to attack")
     git(repo, "worktree", "add", "--detach", str(wt), head)
     try:
@@ -331,10 +331,25 @@ def prepare(repo, skill, args):
             "notes": notes,
         }
         write_json(review / "manifest.json", manifest)
-        if skill == "fable-review":
+        if skill == "claude-review":
             (review / "prompt.md").write_bytes(
                 (SKILLS / skill / "prompts/review.md").read_bytes()
             )
+            # REVIEW.md plus the nearest AGENTS.md at or above each changed path:
+            # the checkout holds them, but nothing loads them for the reviewer.
+            rules = {"REVIEW.md"} if (wt / "REVIEW.md").is_file() else set()
+            for entry in manifest["files"]:
+                guide = next(
+                    (
+                        directory / "AGENTS.md"
+                        for directory in Path(entry["path"]).parents
+                        if (wt / directory / "AGENTS.md").is_file()
+                    ),
+                    None,
+                )
+                if guide:
+                    rules.add(str(guide))
+            (review / "rules.txt").write_text("".join(f"{r}\n" for r in sorted(rules)))
         state = {
             "skill": skill,
             "repo_path": str(repo),
@@ -465,7 +480,7 @@ def worker(repo, skill, tag):
     argv = [
         "claude",
         "--model",
-        "sonnet" if skill == "pr-sanity" else "claude-fable-5-1",
+        "sonnet" if skill == "pr-sanity" else "claude-opus-5-5",
         "--effort",
         "high",
         "--permission-mode",
@@ -709,8 +724,8 @@ def ensure_idle(state):
 def followup(repo, skill, args):
     path, state = load_state(repo, skill)
     ensure_idle(state)
-    if skill != "fable-review" or "review" not in state["jobs"]:
-        raise ReviewError("followup requires an existing Fable review session")
+    if skill != "claude-review" or "review" not in state["jobs"]:
+        raise ReviewError("followup requires an existing Claude review session")
     number = sum(tag.startswith("followup-") for tag in state["jobs"]) + 1
     tag = "followup-" + str(number)
     prompt = Path(state["worktree"]) / ".review" / (tag + ".txt")
@@ -743,8 +758,8 @@ def retry(repo, skill, args):
 def signoff(repo, skill, args):
     path, state = load_state(repo, skill)
     ensure_idle(state)
-    if skill != "fable-review" or "review" not in state["jobs"]:
-        raise ReviewError("signoff requires an existing Fable review session")
+    if skill != "claude-review" or "review" not in state["jobs"]:
+        raise ReviewError("signoff requires an existing Claude review session")
     if git_text(repo, "rev-parse", "HEAD") != state["head"]:
         raise ReviewError("HEAD moved; review committed fixes in a fresh run")
     wt = Path(state["worktree"])
@@ -856,7 +871,9 @@ def cleanup(repo, skill, args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--skill", required=True, choices=["pr-sanity", "fable-review"])
+    parser.add_argument(
+        "--skill", required=True, choices=["pr-sanity", "claude-review"]
+    )
     parser.add_argument("--repo", default=".")
     commands = parser.add_subparsers(dest="action", required=True)
     prepare_parser = commands.add_parser("prepare")

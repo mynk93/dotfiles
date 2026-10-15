@@ -99,7 +99,7 @@ class GitRepositoryTest(unittest.TestCase):
             capture_output=True,
         )
 
-    def prepare(self, skill="fable-review", **options):
+    def prepare(self, skill="claude-review", **options):
         defaults = {
             "pre_pr": True,
             "allow_dirty": False,
@@ -226,7 +226,38 @@ class PrepareTests(GitRepositoryTest):
             self.prepare()
         with self.assertRaises(workflow.ReviewError):
             self.prepare(allow_dirty=True, target="missing-base")
-        self.assertFalse((self.repo / ".worktrees/fable-review").exists())
+        self.assertFalse((self.repo / ".worktrees/claude-review").exists())
+
+    def test_rules_list_review_md_and_only_the_nearest_guide_above_each_changed_path(
+        self,
+    ):
+        guides = [
+            ".github/AGENTS.md",
+            ".github/workflows/AGENTS.md",
+            "src/AGENTS.md",
+            "docs/AGENTS.md",
+        ]
+        changed = [".github/workflows/ci.yml", "src/deep/module.py"]
+        # .github/AGENTS.md is shadowed by the nearer workflows guide, docs/ is
+        # untouched, and the root-level change has no guide above it.
+        expected = ".github/workflows/AGENTS.md\nREVIEW.md\nsrc/AGENTS.md\n"
+        self.git("checkout", "-q", "main")
+        for path in [*guides, "REVIEW.md"]:
+            (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / path).write_text(path + "\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "docs: Add review rules")
+        self.git("push", "-q", "origin", "main")
+        self.git("checkout", "-q", "feature")
+        self.git("rebase", "-q", "main")
+        for path in changed:
+            (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / path).write_text("changed\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "feat: Touch nested paths")
+        prepared = self.prepare()
+        rules = Path(prepared["manifest"]).parent / "rules.txt"
+        self.assertEqual(rules.read_text(), expected)
 
     def test_runtime_links_are_available_without_copying_environment_contents(self):
         (self.repo / ".venv").mkdir()
@@ -290,7 +321,7 @@ else:
         gh.chmod(0o755)
         with self.assertRaisesRegex(workflow.ReviewError, "authentication failed"):
             self.prepare(pre_pr=False)
-        self.assertFalse((self.repo / ".worktrees/fable-review").exists())
+        self.assertFalse((self.repo / ".worktrees/claude-review").exists())
 
     def test_shallow_clone_without_a_merge_base_cannot_produce_an_empty_review(self):
         self.git("push", "origin", "HEAD:feature")
@@ -521,18 +552,18 @@ class LifecycleTests(GitRepositoryTest):
         self.assertEqual(json.loads((out / "cold.json").read_text()), large_report)
         self.assertTrue((out / "usage.json").exists())
 
-    def test_fable_completion_survives_non_json_lines_and_extracts_the_full_original_result(
+    def test_claude_completion_survives_non_json_lines_and_extracts_the_full_original_result(
         self,
     ):
         prepared = self.prepare()
-        self.cli("fable-review", "launch", "--headless")
-        collected = json.loads(self.cli("fable-review", "collect").stdout)
+        self.cli("claude-review", "launch", "--headless")
+        collected = json.loads(self.cli("claude-review", "collect").stdout)
         artifact = Path(collected["artifacts"][0]["path"])
         self.assertEqual(artifact.read_text(), "## Verdict\nship\n")
         args = json.loads(
             (Path(prepared["manifest"]).parent / "out/invocation.json").read_text()
         )["args"]
-        self.assertIn("claude-fable-5-1", args)
+        self.assertIn("claude-opus-5-5", args)
         self.assertIn("high", args)
         self.assertIn("--session-id", args)
 
@@ -543,11 +574,11 @@ class LifecycleTests(GitRepositoryTest):
                 patch.dict(os.environ, {variable: "1"}),
             ):
                 self.prepare()
-                self.cli("fable-review", "launch", "--headless")
-                result = self.cli("fable-review", "collect", check=False)
+                self.cli("claude-review", "launch", "--headless")
+                result = self.cli("claude-review", "collect", check=False)
                 self.assertEqual(result.returncode, 1)
                 self.assertIn("result envelope", result.stderr.decode())
-                self.cli("fable-review", "cleanup")
+                self.cli("claude-review", "cleanup")
 
     def test_timeout_preserves_the_run_and_explicit_abort_stops_the_reviewer(self):
         prepared = self.prepare()
@@ -557,7 +588,7 @@ class LifecycleTests(GitRepositoryTest):
                     sys.executable,
                     str(SCRIPT),
                     "--skill",
-                    "fable-review",
+                    "claude-review",
                     "--repo",
                     str(self.repo),
                     "launch",
@@ -572,12 +603,12 @@ class LifecycleTests(GitRepositoryTest):
         while not (out / "review.pid.json").exists() and time.monotonic() < deadline:
             time.sleep(0.02)
         self.assertTrue((out / "review.pid.json").exists())
-        result = self.cli("fable-review", "wait", "--timeout", "0", check=False)
+        result = self.cli("claude-review", "wait", "--timeout", "0", check=False)
         self.assertEqual(result.returncode, 1)
         self.assertTrue(Path(prepared["state"]).exists())
-        self.cli("fable-review", "cleanup", "--abort")
+        self.cli("claude-review", "cleanup", "--abort")
         launcher.communicate(timeout=5)
-        self.assertFalse((self.repo / ".worktrees/fable-review").exists())
+        self.assertFalse((self.repo / ".worktrees/claude-review").exists())
 
     def test_cmux_launch_and_followup_reuse_the_same_uuid_surface_and_quote_shell_paths(
         self,
@@ -604,17 +635,17 @@ else: print('OK')
         call_log = self.root / "cmux-calls.jsonl"
         with patch.dict(os.environ, {"CMUX_CALL_LOG": str(call_log)}):
             prepared = self.prepare()
-            self.cli("fable-review", "launch")
+            self.cli("claude-review", "launch")
             prompt = self.root / "followup.txt"
             literal = "Explain `literal` and $(literal) without executing them."
             prompt.write_text(literal)
-            self.cli("fable-review", "followup", "--prompt", str(prompt))
+            self.cli("claude-review", "followup", "--prompt", str(prompt))
             invocation = json.loads(
                 (Path(prepared["manifest"]).parent / "out/invocation.json").read_text()
             )
             self.assertEqual(invocation["prompt"], literal)
             self.assertIn("--resume", invocation["args"])
-            self.cli("fable-review", "cleanup")
+            self.cli("claude-review", "cleanup")
         calls = [json.loads(line) for line in call_log.read_text().splitlines()]
         self.assertEqual(sum("new-split" in call for call in calls), 1)
         self.assertEqual(sum("close-surface" in call for call in calls), 1)
@@ -625,7 +656,7 @@ class SignoffTests(GitRepositoryTest):
         self,
     ):
         prepared = self.prepare()
-        self.cli("fable-review", "launch", "--headless")
+        self.cli("claude-review", "launch", "--headless")
         wt = Path(prepared["manifest"]).parents[1]
         self.git("mv", "obsolete.txt", "renamed fix.txt")
         (self.repo / "reader.txt").write_text("staged fix\n")
@@ -643,7 +674,7 @@ class SignoffTests(GitRepositoryTest):
             .strip()
         )
         before = index.read_bytes()
-        self.cli("fable-review", "signoff", "--findings", str(findings), "--headless")
+        self.cli("claude-review", "signoff", "--findings", str(findings), "--headless")
         self.assertEqual((wt / "reader.txt").read_text(), "current unstaged fix\n")
         self.assertEqual((wt / new_file).read_text(), "untracked fix\n")
         self.assertFalse((wt / "obsolete.txt").exists())
@@ -656,10 +687,10 @@ class SignoffTests(GitRepositoryTest):
         self.assertEqual(
             self.git("rev-parse", "HEAD", cwd=wt).stdout.decode().strip(), self.head
         )
-        self.cli("fable-review", "collect")
+        self.cli("claude-review", "collect")
         (self.repo / "reader.txt").write_text("second-round fix\n")
         (self.repo / new_file).unlink()
-        self.cli("fable-review", "signoff", "--findings", str(findings), "--headless")
+        self.cli("claude-review", "signoff", "--findings", str(findings), "--headless")
         self.assertEqual((wt / "reader.txt").read_text(), "second-round fix\n")
         self.assertFalse((wt / new_file).exists())
         self.assertEqual(index.read_bytes(), before)
@@ -667,7 +698,7 @@ class SignoffTests(GitRepositoryTest):
         self.assertTrue((review / "out/verdict-1.rc").exists())
         self.assertTrue((review / "out/verdict-2.rc").exists())
         self.assertIn("second-round fix", (review / "fixes-2.patch").read_text())
-        self.cli("fable-review", "collect")
+        self.cli("claude-review", "collect")
         self.assertEqual(
             [u["job"] for u in json.loads((review / "out/usage.json").read_text())],
             ["verdict-1", "verdict-2"],
@@ -684,13 +715,13 @@ class SignoffTests(GitRepositoryTest):
         self.git("add", "link")
         self.git("commit", "-qm", "feat: Add link fixture")
         prepared = self.prepare()
-        self.cli("fable-review", "launch", "--headless")
+        self.cli("claude-review", "launch", "--headless")
         link.unlink()
         link.mkdir()
         (link / "preserve.txt").write_text("fixed content\n")
         findings = self.root / "findings.txt"
         findings.write_text("F1: Verify the link replacement.")
-        self.cli("fable-review", "signoff", "--findings", str(findings), "--headless")
+        self.cli("claude-review", "signoff", "--findings", str(findings), "--headless")
         wt = Path(prepared["manifest"]).parents[1]
         self.assertFalse((wt / "link").is_symlink())
         self.assertEqual((wt / "link/preserve.txt").read_text(), "fixed content\n")
@@ -700,12 +731,12 @@ class SignoffTests(GitRepositoryTest):
         self,
     ):
         prepared = self.prepare()
-        self.cli("fable-review", "launch", "--headless")
+        self.cli("claude-review", "launch", "--headless")
         self.git("commit", "--allow-empty", "-qm", "chore: Move head")
         findings = self.root / "findings.txt"
         findings.write_text("F1: Verify the reader fix.")
         result = self.cli(
-            "fable-review",
+            "claude-review",
             "signoff",
             "--findings",
             str(findings),
