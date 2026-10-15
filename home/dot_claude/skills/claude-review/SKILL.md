@@ -120,9 +120,28 @@ fi
 git worktree add --detach .worktrees/claude-review HEAD
 mkdir -p .worktrees/claude-review/.review/out
 git diff "$BASE"..HEAD > .worktrees/claude-review/.review/diff.patch
+# The repo's own review rules, read by the reviewer before the diff: REVIEW.md
+# and, for every changed path, the nearest AGENTS.md at or above it. The
+# checkout already holds them; the list makes sure the reviewer opens them.
+{
+  [ -f REVIEW.md ] && echo REVIEW.md
+  git diff --name-only "$BASE"..HEAD | while read -r f; do
+    d=$(dirname "$f")
+    until [ -f "$d/AGENTS.md" ] || [ "$d" = . ]; do d=$(dirname "$d"); done
+    [ -f "$d/AGENTS.md" ] && echo "$d/AGENTS.md"
+  done
+} | sed 's|^\./||' | sort -u > .worktrees/claude-review/.review/rules.txt
 cp ~/.claude/skills/claude-review/prompts/review.md \
    .worktrees/claude-review/.review/prompt.md
 ```
+
+`rules.txt` exists because the worktree being a full checkout puts the repo's
+agent docs on disk but does not make the reviewer read them. A Claude session
+loads an area guide only when it reads a file in that directory, and Codex
+loads only the `AGENTS.md` files between the repo root and its working
+directory, so a guide like `.github/AGENTS.md` or a `REVIEW.md` stays unread
+unless the prompt sends the reviewer there. An empty `rules.txt` is fine: the
+repo has no rules of its own.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
