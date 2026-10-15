@@ -133,6 +133,17 @@ for RUNTIME in .venv node_modules; do
   [ -e "$RUNTIME" ] && ln -s "$PWD/$RUNTIME" ".worktrees/codex-review/$RUNTIME"
 done
 git diff "$BASE"..HEAD > .worktrees/codex-review/.review/diff.patch
+# The repo's own review rules, read by the reviewer before the diff: REVIEW.md
+# and, for every changed path, the nearest AGENTS.md at or above it. The
+# checkout already holds them; the list makes sure the reviewer opens them.
+{
+  [ -f REVIEW.md ] && echo REVIEW.md
+  git diff --name-only "$BASE"..HEAD | while read -r f; do
+    d=$(dirname "$f")
+    until [ -f "$d/AGENTS.md" ] || [ "$d" = . ]; do d=$(dirname "$d"); done
+    [ -f "$d/AGENTS.md" ] && echo "$d/AGENTS.md"
+  done
+} | sed 's|^\./||' | sort -u > .worktrees/codex-review/.review/rules.txt
 cp ~/.claude/skills/codex-review/prompts/review.md \
    .worktrees/codex-review/.review/prompt.md
 ```
@@ -143,6 +154,14 @@ script commonly installs rather than links and this step has to stay a pure
 symlink; and `.env*` is left behind, because a hostile reviewer has
 no business holding the secrets. What the links do and do not permit belongs to
 the reviewer, so it lives in `prompts/review.md`'s `<sandbox>` block.
+
+`rules.txt` exists because the worktree being a full checkout puts the repo's
+agent docs on disk but does not make the reviewer read them. A Claude session
+loads an area guide only when it reads a file in that directory, and Codex
+loads only the `AGENTS.md` files between the repo root and its working
+directory, so a guide like `.github/AGENTS.md` or a `REVIEW.md` stays unread
+unless the prompt sends the reviewer there. An empty `rules.txt` is fine: the
+repo has no rules of its own.
 
 Write `.review/body.md` and `.review/issue.md` (when present), plus a slim
 `.review/manifest.json`: `mode`, `repo`, `pr_number`, `branch`, `target`,
