@@ -1,6 +1,6 @@
 -- In-buffer markdown rendering.
 --
--- This repo's docs are markdown-heavy (CLAUDE.md, docs/fbt/*, runbooks), and
+-- The repos I read are markdown-heavy (CLAUDE.md files, docs, runbooks), and
 -- until now reading them meant leaving the editor for `view` (glow -p). This
 -- renders headings, code blocks, tables, callouts and lists in place.
 --

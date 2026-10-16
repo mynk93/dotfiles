@@ -53,14 +53,13 @@ brew "lazydocker" # docker TUI (alias: lzd)
 
 # Terminal-first replacements for GUI departures
 brew "yazi"       # file manager TUI
-brew "neovim"     # code *reader*, not the $EDITOR (that stays zed).
+brew "neovim"     # $EDITOR and code reader. dot_config/nvim carries the
+                  # folding zed structurally cannot do: syntax folds,
+                  # relative fold levels (zm/zr), and fold text that
+                  # surfaces slog event names
 brew "tree-sitter-cli" # nvim-treesitter's main branch shells out to this
                   # to compile parsers; without it every `install()`
                   # fails with ENOENT and folding silently degrades
-                  # Carries the tree-sitter folding config in
-                  # dot_config/nvim that zed structurally cannot do:
-                  # syntax folds, relative fold levels (zm/zr), and
-                  # a custom foldtext that surfaces slog event names
 brew "xh"         # HTTP client (Postman/Insomnia replacement)
 brew "jless"      # interactive JSON viewer
 brew "glow"       # markdown renderer

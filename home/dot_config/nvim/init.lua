@@ -1,21 +1,20 @@
--- Neovim as a code *reader*.
+-- Neovim as a code *reader*, and $EDITOR.
 --
--- Zed stays $EDITOR. This config exists for the one thing Zed structurally
--- cannot do: programmable folding. Zed's folds are indentation-derived with a
--- hardcoded `⋯` placeholder, so a wrapped call and a wrapped parameter list
+-- It started as a reader for the one thing Zed cannot do: programmable
+-- folding. Zed's folds are indentation-derived with a hardcoded `⋯`
+-- placeholder, so a wrapped call and a wrapped parameter list
 -- are indistinguishable and a collapsed fold can never show its contents.
 -- Neovim exposes both hooks — fold boundaries and the folded placeholder —
 -- so both are fixed here. See reader.folding (nvim-ufo) and reader.foldtext.
 --
--- Deliberately no LSP, no completion, no formatter. Reading only; editing
--- happens in Zed. Keep it that way — every plugin added here is a thing that
--- breaks on a machine where you only wanted to read a file.
+-- LSP is here for navigation (definition, references, hover) and nothing
+-- else: no completion, no formatter. See reader.lsp.
 
 vim.g.mapleader = ","
 
 -- ── Reading surface ────────────────────────────────────────────────────────
 local o = vim.opt
-o.number, o.relativenumber = true, true   -- matches the .vimrc this replaces
+o.number, o.relativenumber = true, true   -- matches dot_vimrc
 o.cursorline   = true
 o.scrolloff    = 3
 o.mouse        = "a"
@@ -27,15 +26,13 @@ o.ignorecase, o.smartcase = true, true
 o.splitright, o.splitbelow = true, true
 o.undofile     = true
 
--- Blank out the fold trailing-dot fill so the virt-text handler controls the
--- whole line.
-o.fillchars:append({ fold = " " })
-
 -- ── Folding ────────────────────────────────────────────────────────────────
 -- Owned by reader.folding (nvim-ufo). Only the fill char stays here, because
--- it is a display detail rather than a folding decision.
+-- it is a display detail rather than a folding decision: blank out the
+-- trailing-dot fill so the virt-text handler controls the whole line.
+o.fillchars:append({ fold = " " })
 
--- ── Plugins (vim.pack, built into 0.12 — no bootstrap script) ──────────────
+-- ── Plugins (vim.pack, built into 0.12 — no plugin-manager bootstrap) ────────
 vim.pack.add({
   { src = "https://github.com/nvim-treesitter/nvim-treesitter", version = "main" },
   { src = "https://github.com/ibhagwan/fzf-lua" },                  -- files / grep / symbols
@@ -66,7 +63,8 @@ require("reader.markdown")
 require("reader.diagrams")
 
 -- nvim-treesitter's main branch does not start parsing on its own, so without
--- this the foldexpr has no tree to read and every fold level comes back 0.
+-- this ufo's treesitter provider has no tree to read and folds fall back to
+-- indent.
 vim.api.nvim_create_autocmd("FileType", {
   desc = "reader: start tree-sitter and hand folding to it",
   callback = function(ev)
@@ -81,8 +79,6 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- ── Keymaps ────────────────────────────────────────────────────────────────
--- zr / zm step the fold level by one — the relative control that absolute
--- fold-at-level-N can't express. zR / zM go all the way. za toggles one.
 local map = vim.keymap.set
 local fzf = require("fzf-lua")
 

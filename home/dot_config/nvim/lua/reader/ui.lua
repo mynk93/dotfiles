@@ -3,8 +3,8 @@
 -- Split out from init.lua because styling churns and folding does not; keeping
 -- them apart means a theme experiment can't break the reader.
 --
--- Terminal font and palette are NOT here — they belong to Ghostty, which cmux
--- embeds. See ~/.config/ghostty/config.
+-- Terminal font and palette are NOT here — the terminal (cmux, which embeds
+-- Ghostty) owns them.
 
 require("dracula").setup({
   italic_comment = true,
