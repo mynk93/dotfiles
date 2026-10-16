@@ -110,6 +110,10 @@ if command -v fzf >/dev/null 2>&1; then
     fi
 fi
 
+# The AWS CLI completes itself: `complete -C` hands the word off to
+# aws_completer, which its own installer symlinks in next to `aws`.
+command -v aws_completer >/dev/null 2>&1 && complete -C aws_completer aws
+
 # ── Interactive-only setup ─────────────────────────────────
 # readline `bind` errors out in a non-interactive shell, and bash sources
 # ~/.bashrc for non-interactive ssh commands, so this must stay guarded or
