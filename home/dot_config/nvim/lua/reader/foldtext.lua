@@ -17,11 +17,41 @@ local M = {}
 -- Keyword whose value identifies a folded call. Ordered: first hit wins.
 local IDENTIFYING_KEYS = { "event", "name", "label" }
 
--- Pure, so it can be tested without driving a real fold.
+-- True when the fold opens a wrapped call: the first line ends on `name(`.
+-- A wrapped `def f(` or `class C(` ends the same way but is a signature, and
+-- summarising it would lift an event out of the body below.
+local function opens_call(head)
+  if head:match("^%s*def%s") or head:match("^%s*async%s+def%s") or head:match("^%s*class%s") then
+    return false
+  end
+  return head:match("[%w_%.]%(%s*$") ~= nil
+end
+
+-- Pure, so it can be tested without driving a real fold. lines[1] is the
+-- fold's first line. Only keyword arguments that start a line at the call's
+-- own argument indent count, so `event=` inside a nested call is skipped. The
+-- scan stops at the closing bracket (the first line back at the head's
+-- indent): a fold headed by `with lock(` also holds the block's body.
 function M.identifying_value(lines)
+  if not lines[1] or not opens_call(lines[1]) then
+    return nil
+  end
+  local head_indent = #lines[1]:match("^%s*")
+  local args = {}
+  for i = 2, #lines do
+    if lines[i]:match("%S") and #lines[i]:match("^%s*") <= head_indent then
+      break
+    end
+    args[#args + 1] = lines[i]
+  end
+  local first_arg = vim.iter(args):find(function(l) return l:match("%S") end)
+  if not first_arg then
+    return nil
+  end
+  local arg_indent = first_arg:match("^%s*")
   for _, key in ipairs(IDENTIFYING_KEYS) do
-    for _, line in ipairs(lines) do
-      local value = line:match(key .. '%s*=%s*(%b"")')
+    for _, line in ipairs(args) do
+      local value = line:match("^" .. arg_indent .. key .. '%s*=%s*(%b"")')
       if value then
         return key .. "=" .. value
       end
@@ -30,18 +60,11 @@ function M.identifying_value(lines)
   return nil
 end
 
--- True when the fold opens a wrapped call or literal, i.e. its first line ends
--- on an open bracket. Those are the folds worth summarising.
-local function opens_bracket(text)
-  return text:match("[%(%[{]%s*$") ~= nil
-end
-
 function M.handler(virt_text, lnum, end_lnum, width, truncate)
   local count = end_lnum - lnum
   local lines = vim.api.nvim_buf_get_lines(0, lnum - 1, end_lnum, false)
 
-  local head_text = table.concat(vim.tbl_map(function(c) return c[1] end, virt_text))
-  local ident = opens_bracket(head_text) and M.identifying_value(lines) or nil
+  local ident = M.identifying_value(lines)
 
   local suffix = ident and ("%s, …)  󰁂 %d"):format(ident, count) or ("  󰁂 %d"):format(count)
   local suffix_width = vim.fn.strdisplaywidth(suffix)
