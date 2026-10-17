@@ -25,20 +25,22 @@ Same views, same order, same colours on every page. The set is lifted from ISO/I
 
 Two further views from the standard belong on a deployment-type chunk when one exists: a **component view** (C4 level 3) and a **deployment view**.
 
-## Mermaid conventions
+## Diagram conventions
 
-```
-classDef legacy stroke-dasharray:5 5,stroke:#6B6A66,color:#6B6A66,fill:#fff
-classDef existing fill:#fff,stroke:#003D67,color:#003D67
-classDef earlier fill:#F2EDE3,stroke:#003D67,color:#003D67
-classDef new fill:#FDF1E7,stroke:#EC792B,color:#003D67,stroke-width:2px
-classDef warn fill:#fff,stroke:#D86919,color:#D86919,stroke-dasharray:4 4
-```
+Every diagram is hand-placed inline SVG in an ` ```svg ` fence. The renderer inlines the fence as-is inside a `.diagram` box and caps it at its viewBox width, so it draws at 1:1. The method (plan the inventory, 8 px grid, box width from text, orthogonal edges on box edges, numbered badges with a key table, draw order) is pro-html's: read `~/.claude/plugins/marketplaces/proPlugins/skills/pro-html/references/svg-diagrams.md` before drawing. Elih keeps its own palette, so these are the differences:
 
-- `flowchart TD` always. Sequence and state diagrams are vertical by nature.
-- Node ids are short upper-case tokens; labels are quoted strings. Keep the same id for the same box across all passes so the stepper reads as one system growing.
-- Chunk names appear in upper case inside a label the first time the chunk is introduced ("CONVEYOR: Redis pointer stream") and plain afterwards.
-- Edge labels in quotes. No HTML in labels.
+- **Canvas.** viewBox width 800. Go up to 952 only when it won't fit; that is the widest that still draws at 1:1 in a card. Grow down rather than wider.
+- **Node kinds.** `dg-node` unchanged (white, navy border), `dg-earlier` added in an earlier pass (beige), `dg-new` new in this pass or this chunk (cream, 2 px orange border), `dg-legacy` stays until retired (dashed grey, grey text), `dg-ext` external system or store (beige, grey border), `dg-key` the one hub (navy, white text), `dg-warn` a known hazard (dashed dark orange). Every kind used goes in a `<p class="diagram-legend">` with `<i class="k-<kind>">` swatches, inside the fence after the `</svg>`.
+- **Edges.** `dg-edge` solid, `dg-return` dashed, `dg-hot` the one path the page is about. Markers fill `#003D67` (`#EC792B` for a hot edge's marker).
+- **Ids are page-global.** The board and every chunk are tabs on one page. Prefix every id with the diagram's slug (`pass2-arrow`, `<chunk-id>-how-arrow`); lint fails on a repeat.
+- **Key table.** Numbered badges are explained in a markdown table right after the fence: `#` · `From → to` · `What happens`, with `<span class="num">1</span>` in the first cell.
+- **Stepper.** Lay out the final pass first, then cut pass 0 down from it. Every pass copies the previous pass's svg with the same viewBox and every box at the same coordinates. The previous pass's `dg-new` boxes become `dg-earlier`; this pass's additions are `dg-new`. The board then reads as one system growing.
+- **Flow top to bottom.** Sequence diagrams put participants across the top; state diagrams use `rx="22"` boxes and a filled start circle.
+- Chunk names appear in upper case the first time a diagram introduces the chunk ("CONVEYOR" with "Redis pointer stream" as its detail line) and plain afterwards.
+
+Mermaid stays loaded for LikeC4-generated views and old boards. Lint warns on a hand-written Mermaid fence.
+
+**Check the render.** Hand-placed coordinates are never right the first time. Run `elih.py render <dir> --flat -o /tmp/elih-flat.html` (every tab and pass shown at once), then pro-html's `scripts/snap /tmp/elih-flat.html` from the same plugin directory. Fix every SVG layout issue it reports, ignore its brand section (elih keeps the older fonts and colours on purpose), and Read the `svg-N.png` files before handing over.
 
 ## LikeC4 (preferred for context views)
 
@@ -49,7 +51,7 @@ npx likec4 gen mermaid -o elih/out/views elih     # default: no browser needed
 npx likec4 export png -o elih/out/views elih      # `render --png`; needs `npx playwright install chromium` once
 ```
 
-A view is embedded wherever the ledger names its id: `feature.context_view` on the board, `chunks[].context_view` at the top of a chunk page. The PNG wins when present, the generated `.mmd` otherwise, and the hand-written Mermaid block in `board.md` when neither exists. Generated Mermaid uses the `@{ shape: ... }` node syntax, so the page loads Mermaid 11.
+A view is embedded wherever the ledger names its id: `feature.context_view` on the board, `chunks[].context_view` at the top of a chunk page. The PNG wins when present, the generated `.mmd` otherwise, and the hand-drawn svg in `board.md` when neither exists. Generated Mermaid uses the `@{ shape: ... }` node syntax, so the page loads Mermaid 11.
 
 Keep the model small: the systems that exist, the new deployable, the stores, the external services. One `view` for the board, one `view <id> of <element>` per chunk. Tag the new deployable `#new` and legacy elements `#legacy`; the styles in the template colour them. The interactive site from `npx likec4 build -o elih/out/site elih` is linked from the board when `out/site/index.html` exists.
 
