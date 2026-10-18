@@ -207,7 +207,7 @@ def lint(src: Path) -> list:
                 warn(f"{label}: hand-written Mermaid fence; draw it as an svg fence (reference/views.md)")
             elif lang == "svg":
                 if "aria-label=" not in part:
-                    warn(f"{label}: svg fence without role=\"img\" aria-label; give it the claim its caption states")
+                    warn(f"{label}: svg fence without an aria-label; give it the claim its caption states")
                 for i in re.findall(r'\bid="([^"]+)"', part):
                     if i in svg_ids:
                         err(f"{label}: svg id '{i}' is already used in {svg_ids[i]}; prefix ids with the diagram's slug")
@@ -551,7 +551,7 @@ CSS = r'''
     .diagram-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem 1.25rem;margin:.6rem 0 0;font-size:13px;color:var(--ink-muted)}
     .diagram-legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:.4rem;border:1.25px solid var(--brand-navy);background:var(--surface)}
     .diagram-legend i.k-new{background:var(--orange-soft);border:2px solid var(--brand-orange)}.diagram-legend i.k-earlier{background:var(--surface-2)}.diagram-legend i.k-legacy{border-style:dashed;border-color:var(--ink-muted)}
-    .diagram-legend i.k-ext{background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-key{background:var(--brand-navy)}
+    .diagram-legend i.k-ext{background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-key{background:var(--brand-navy)}.diagram-legend i.k-node{background:var(--surface)}.diagram-legend i.k-warn{border-style:dashed;border-color:var(--orange-hover)}
     .diagram-legend i.k-call,.diagram-legend i.k-return{width:22px;height:0;border:0;border-radius:0;border-top:1.5px solid var(--brand-navy);vertical-align:4px;background:none}.diagram-legend i.k-return{border-top-style:dashed}
     .dg-node{fill:#FFF;stroke:#003D67;stroke-width:1.25}.dg-earlier{fill:#F2EDE3;stroke:#003D67;stroke-width:1.25}.dg-new{fill:#FDF1E7;stroke:#EC792B;stroke-width:2}
     .dg-legacy{fill:#FFF;stroke:#6B6A66;stroke-width:1.25;stroke-dasharray:5 4}.dg-warn{fill:#FFF;stroke:#D86919;stroke-width:1.25;stroke-dasharray:4 4}
@@ -699,7 +699,7 @@ def git_head(src: Path):
 def export_likec4(src: Path, views_dir: Path, png: bool = False):
     """Generate the model's views. Mermaid needs no browser; PNG needs Playwright's Chromium."""
     if not shutil.which("npx"):
-        print("likec4: npx not found; using the Mermaid blocks in board.md and chunk pages", file=sys.stderr)
+        print("likec4: npx not found; using the diagrams in board.md and chunk pages", file=sys.stderr)
         return
     views_dir.mkdir(parents=True, exist_ok=True)
     cmd = ["npx", "--yes", "likec4"] + (["export", "png"] if png else ["gen", "mermaid"]) + ["-o", str(views_dir), str(src)]
@@ -711,7 +711,7 @@ def export_likec4(src: Path, views_dir: Path, png: bool = False):
     if failed:
         shutil.rmtree(views_dir, ignore_errors=True)
         hint = " Run `npx playwright install chromium` for PNG export." if png and "playwright" in detail.lower() else ""
-        print(f"likec4 {' '.join(cmd[3:5])} failed; falling back to the Mermaid blocks in the source.{hint}\n{detail[-600:]}", file=sys.stderr)
+        print(f"likec4 {' '.join(cmd[3:5])} failed; falling back to the diagrams in the source.{hint}\n{detail[-600:]}", file=sys.stderr)
 
 
 # ----------------------------------------------------------------------------

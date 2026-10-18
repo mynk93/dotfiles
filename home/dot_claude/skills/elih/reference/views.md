@@ -40,7 +40,7 @@ A diagram earns its place when it shows a mechanism the reader would otherwise a
 
 ### Frame
 
-- Each ` ```svg ` fence holds one `<svg viewBox="0 0 760 H" role="img" aria-label="…">` followed by a `<figcaption>`. The renderer wraps the two in a `<figure>`, inlines them unchanged, and never scales the svg past its viewBox width, so 13 px text renders at 13 px.
+- Each ` ```svg ` fence holds one `<svg viewBox="0 0 760 H" role="img" aria-label="…">` followed by a `<figcaption>`. The renderer wraps the two in a `<figure>`, inlines them unchanged, and never scales the svg past its viewBox width, so 13 px text renders at 13 px. On screens narrower than 640 px the figure scrolls sideways instead of shrinking further.
 - The caption states the one claim the picture makes, such as "Writes move to the conveyor; reads stay put", never its topic. The `aria-label` repeats the claim, and lint warns when it is missing. Explanations belong in the caption or the prose, not inside the drawing.
 - Use width 760. Go up to 952 only when the drawing will not fit, because 952 is the widest a card draws at 1:1. Grow down instead of wider.
 - Set H to the lowest edge or baseline plus 24. Keep every coordinate positive and every label at least 24 clear of the right edge. A label with `text-anchor="end"` grows leftwards, so check where it starts.
@@ -62,7 +62,7 @@ A diagram earns its place when it shows a mechanism the reader would otherwise a
 
 - Count every line before writing its box. A line that doesn't fit gets a wider box or fewer words, never text over the border.
 - A box is 40 tall plus 16 per detail line. The name's baseline sits 24 below the box top, and detail lines sit at 40 and 56. Centre the text at x = left + width / 2. Boxes of the same kind share a height.
-- Put every coordinate on a step of 8. Leave at least 48 between boxes, and the label's width plus 16 where an edge label sits in the gap. Boxes in a row share a centre y, and boxes in a column share a centre x.
+- Put box corners on a step of 8; edge ports, baselines and labels follow from the box. Leave at least 48 between boxes, and the label's width plus 16 where an edge label sits in the gap. Boxes in a row share a centre y, and boxes in a column share a centre x.
 - Write one `<g>` per node, the rect first and then its text, with `rx="8"`. A container `dg-group` leaves 32 at the top for its `dg-lane` name and 16 on the other sides.
 
 ### Colour
@@ -79,7 +79,7 @@ Colour names a kind of thing, and emphasis comes from contrast. One `dg-new` or 
 | `dg-key` | navy, white text | the one hub, at most one per diagram |
 | `dg-warn` | dashed dark orange | a known hazard |
 
-Add a `<p class="diagram-legend">` with `<i class="k-<kind>">` swatches only when an encoding repeats and the caption doesn't explain it. The stepper header carries its own key.
+Add a `<p class="diagram-legend">` only when an encoding repeats and the caption doesn't explain it. Each entry is a swatch and its meaning, `<span><i class="k-new"></i>New in this pass</span>`. The swatch classes are `k-node`, `k-new`, `k-earlier`, `k-legacy`, `k-ext`, `k-key` and `k-warn` for boxes, and `k-call` and `k-return` for edges.
 
 ### Edges
 
@@ -96,11 +96,11 @@ Add a `<p class="diagram-legend">` with `<i class="k-<kind>">` swatches only whe
 
 ### Stepper passes
 
-Lay out the final pass first, then cut pass 0 down from it. Each pass copies the previous pass's svg with the same viewBox and every box at the same coordinates. The previous pass's `dg-new` boxes become `dg-earlier`, and this pass's additions are `dg-new`, so the board reads as one system growing.
+Lay out the final pass first, then cut pass 0 down from it. Each pass copies the previous pass's svg with the same viewBox and every box at the same coordinates. The previous pass's `dg-new` boxes become `dg-earlier`, and this pass's additions are `dg-new`, so the board reads as one system growing. The stepper header's key covers these four classes: new in this pass is `dg-new`, added earlier is `dg-earlier`, unchanged is `dg-node`, and legacy is `dg-legacy`. Stepper diagrams need no legend of their own.
 
 ### Check the render
 
-Coordinates are written blind, so look at the result before handing over. Run `elih.py render <dir> --flat -o /tmp/elih-flat.html`, which shows every tab and pass at once, then screenshot it with a headless browser and read the images. Fix any line over a border, words cut off at the frame's edge, edge through a box or a label, or labels touching. Re-render until each caption's claim lands at a glance.
+Coordinates are written blind, so look at the result before handing over. Run `elih.py render <dir> --flat -o /tmp/elih-flat.html`, which shows every tab and pass at once, then screenshot it with `npx playwright screenshot --full-page file:///tmp/elih-flat.html /tmp/elih-flat.png` and read the image. The first run needs `npx playwright install chromium`. Fix any line over a border, words cut off at the frame's edge, edge through a box or a label, or labels touching. Re-render until each caption's claim lands at a glance.
 
 ## LikeC4 (preferred for context views)
 
