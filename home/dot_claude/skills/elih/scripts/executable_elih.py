@@ -3,14 +3,15 @@
 
     elih.py init   <elih-dir> --feature <slug> [--name <title>]
     elih.py lint   <elih-dir>
-    elih.py render <elih-dir> [-o out.html] [--no-likec4] [--png]
+    elih.py render <elih-dir> [-o out.html] [--no-likec4] [--png] [--flat]
     elih.py ack    <elih-dir> [--date YYYY-MM-DD]
     elih.py status <elih-dir>
 
 Source of truth is <elih-dir>/ledger.yaml plus board.md and chunks/*.md.
 The HTML is a derived view. Markdown renders client-side with marked.js;
-Mermaid fences become diagrams; LikeC4 views are exported to PNG when the
-toolchain is available and embedded where the ledger names a view id.
+svg fences are hand-placed diagrams, inlined as-is; Mermaid fences are the
+fallback. LikeC4 views are exported when the toolchain is available and
+embedded where the ledger names a view id.
 """
 import argparse
 import datetime as dt
@@ -193,6 +194,24 @@ def lint(src: Path) -> list:
             warn("board.md has no '## Context' section")
         if len([t for t in secs if not t.lower().startswith("context")]) < 2:
             warn("board.md has fewer than two passes; the stepper needs today plus one per chunk")
+
+    # Diagrams are svg fences. Every tab is one page, so element ids (arrow markers) are page-global.
+    svg_ids = {}
+    for label, path in prose:
+        if not path.exists():
+            continue
+        for part in split_fenced(path.read_text()):
+            info = FENCE_OPEN_RE.sub("", part.split("\n", 1)[0]).split() if is_fence(part) else []
+            lang = info[0].lower() if info else ""
+            if lang == "mermaid":
+                warn(f"{label}: hand-written Mermaid fence; draw it as an svg fence (reference/views.md)")
+            elif lang == "svg":
+                if "aria-label=" not in part:
+                    warn(f"{label}: svg fence without role=\"img\" aria-label; give it the claim its caption states")
+                for i in re.findall(r'\bid="([^"]+)"', part):
+                    if i in svg_ids:
+                        err(f"{label}: svg id '{i}' is already used in {svg_ids[i]}; prefix ids with the diagram's slug")
+                    svg_ids.setdefault(i, label)
 
     # Staleness: status_date older than the last commit touching the repo.
     try:
@@ -528,6 +547,20 @@ CSS = r'''
     .md table{width:100%;border-collapse:collapse;font-size:.92rem;margin:.75rem 0}.md th{text-align:left;border-bottom:2px solid var(--border);padding:.45rem .6rem}.md td{border-bottom:1px solid var(--border);padding:.45rem .6rem;vertical-align:top}
     .md h2{font-size:1.2rem;margin-top:1.75rem;padding-top:1rem;border-top:1px solid var(--border)}.md h2:first-child{border-top:0;margin-top:0;padding-top:0}
     .md .mermaid{display:flex;justify-content:center;background:var(--bg);border-radius:12px;padding:.75rem;margin:.75rem 0}
+    .diagram{background:var(--bg);border-radius:12px;padding:.75rem;margin:.75rem 0;overflow-x:auto}.diagram>svg{display:block;width:100%;height:auto;margin:0 auto}.diagram figcaption{font-size:.88rem;color:var(--ink-muted);text-align:center;margin-top:.5rem}
+    .diagram-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem 1.25rem;margin:.6rem 0 0;font-size:13px;color:var(--ink-muted)}
+    .diagram-legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:.4rem;border:1.25px solid var(--brand-navy);background:var(--surface)}
+    .diagram-legend i.k-new{background:var(--orange-soft);border:2px solid var(--brand-orange)}.diagram-legend i.k-earlier{background:var(--surface-2)}.diagram-legend i.k-legacy{border-style:dashed;border-color:var(--ink-muted)}
+    .diagram-legend i.k-ext{background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-key{background:var(--brand-navy)}
+    .diagram-legend i.k-call,.diagram-legend i.k-return{width:22px;height:0;border:0;border-radius:0;border-top:1.5px solid var(--brand-navy);vertical-align:4px;background:none}.diagram-legend i.k-return{border-top-style:dashed}
+    .dg-node{fill:#FFF;stroke:#003D67;stroke-width:1.25}.dg-earlier{fill:#F2EDE3;stroke:#003D67;stroke-width:1.25}.dg-new{fill:#FDF1E7;stroke:#EC792B;stroke-width:2}
+    .dg-legacy{fill:#FFF;stroke:#6B6A66;stroke-width:1.25;stroke-dasharray:5 4}.dg-warn{fill:#FFF;stroke:#D86919;stroke-width:1.25;stroke-dasharray:4 4}
+    .dg-ext{fill:#F2EDE3;stroke:#6B6A66;stroke-width:1.25}.dg-key{fill:#003D67;stroke:#003D67;stroke-width:1.25}.dg-group{fill:none;stroke:#003D67;stroke-opacity:.4;stroke-width:1.25;stroke-dasharray:6 4}
+    .dg-name{font:600 13px var(--font-body);fill:#003D67;text-anchor:middle}.dg-sub{font:400 13px var(--font-body);fill:#6B6A66;text-anchor:middle}.dg-code{font:400 13px ui-monospace,Menlo,monospace;fill:#6B6A66;text-anchor:middle}
+    .dg-legacy~.dg-name{fill:#6B6A66}.dg-key~.dg-name{fill:#FFF}.dg-key~.dg-sub,.dg-key~.dg-code{fill:#FFF;fill-opacity:.8}
+    .dg-lane{font:600 13px var(--font-body);fill:#003D67}.dg-label{font:400 11.5px var(--font-body);fill:#6B6A66}
+    .dg-edge{fill:none;stroke:#003D67;stroke-width:1.25}.dg-return{stroke-dasharray:5 4}.dg-hot{stroke:#EC792B;stroke-width:2.5}.dg-life{fill:none;stroke:#6B6A66;stroke-width:1.25;stroke-dasharray:3 4}
+    .flat .tab,.flat .stepper .pane{display:block}
     .md pre{background:#1B1B1A;border-radius:12px;overflow-x:auto}
     figure.view{margin:0;text-align:center}figure.view img{max-width:100%;border-radius:12px;border:1px solid var(--border)}figure.view figcaption{font-size:.85rem;color:var(--ink-muted);margin-top:.4rem}
     nav.tabs{display:flex;gap:.4rem;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:.6rem 0;z-index:5;border-bottom:1px solid var(--border)}
@@ -560,6 +593,11 @@ JS = r'''
       box.querySelectorAll('pre code.language-mermaid').forEach(code => {
         const d = document.createElement('div'); d.className = 'mermaid'; d.textContent = code.textContent; code.parentElement.replaceWith(d);
       });
+      box.querySelectorAll('pre code.language-svg').forEach(code => {
+        const d = document.createElement('figure'); d.className = 'diagram'; d.innerHTML = code.textContent; code.parentElement.replaceWith(d);
+        // Draw at 1:1: never scale past the viewBox width, so 13px diagram text stays 13px.
+        d.querySelectorAll(':scope > svg').forEach(s => { const vb = s.viewBox.baseVal; if (vb && vb.width) { s.style.maxWidth = vb.width + 'px'; s.style.minWidth = Math.min(vb.width, 640) + 'px'; } });
+      });
       box.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
     });
     // Pre-render every diagram once, off-screen but laid out, so tab or stepper
@@ -591,7 +629,7 @@ JS = r'''
 '''
 
 
-def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False) -> Path:
+def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False, flat: bool = False) -> Path:
     L = load(src)
     F = L["feature"]
     F["status_date"] = dt.date.today().isoformat()
@@ -622,7 +660,7 @@ def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False) -> 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11/styles/github-dark.min.css">
 <style>{CSS}</style></head>
-<body><div class="page">
+<body{' class="flat"' if flat else ''}><div class="page">
 <header class="brand"><strong>ELIH</strong><span class="muted">explain like I'm human · generated {esc(F["status_date"])} from <code class="inline">{esc(src.name)}/</code></span></header>
 <nav class="tabs">{"".join(nav)}</nav>
 <div class="tab" id="tab-board">{board_tab(L, board_md, views_dir)}</div>
@@ -892,7 +930,7 @@ def main(argv=None):
     sp = ap.add_subparsers(dest="cmd", required=True)
     p = sp.add_parser("init"); p.add_argument("dir"); p.add_argument("--feature", required=True); p.add_argument("--name", default="")
     p = sp.add_parser("lint"); p.add_argument("dir")
-    p = sp.add_parser("render"); p.add_argument("dir"); p.add_argument("-o", "--out"); p.add_argument("--no-likec4", action="store_true"); p.add_argument("--png", action="store_true", help="export LikeC4 views as PNG (needs Playwright Chromium) instead of Mermaid")
+    p = sp.add_parser("render"); p.add_argument("dir"); p.add_argument("-o", "--out"); p.add_argument("--no-likec4", action="store_true"); p.add_argument("--png", action="store_true", help="export LikeC4 views as PNG (needs Playwright Chromium) instead of Mermaid"); p.add_argument("--flat", action="store_true", help="show every tab and stepper pass at once, for screenshots and the render check")
     p = sp.add_parser("ack"); p.add_argument("dir"); p.add_argument("--date", default=dt.date.today().isoformat())
     p = sp.add_parser("status"); p.add_argument("dir")
     p = sp.add_parser("dissolve"); p.add_argument("dir"); p.add_argument("-o", "--out", help="doc path; default docs/<slug>.md beside the elih dir"); p.add_argument("--partial", action="store_true", help="allow chunks that are not merged or deployed")
@@ -914,7 +952,7 @@ def main(argv=None):
         if errors:
             print("\n".join("error: " + e for e in errors)); return 1
         out = Path(a.out) if a.out else src / "out" / "index.html"
-        path = render(src, out, use_likec4=not a.no_likec4, png=a.png)
+        path = render(src, out, use_likec4=not a.no_likec4, png=a.png, flat=a.flat)
         print(path)
         return 0
     if a.cmd == "ack":

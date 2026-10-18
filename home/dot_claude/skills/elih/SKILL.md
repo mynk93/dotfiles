@@ -16,7 +16,7 @@ It exists because long agent-driven features drown the human in entities: invent
 3. **Pillars stop the world.** A pillar is an assumption that invalidates the plan if false. A pillar in state `needs-you` gives the agent one run; after that it waits. Every other choice is a decision with a state; the agent proceeds and logs it.
 4. **Recommended never hardens.** A decision in state `recommended` or `assumed` stays on the board until the human flips it. Silence leaves it where it is. The board re-asks in the same place every run.
 5. **Compression gradient.** L0 board fits one screen. L1 chunk pages are one page each with the same six sections in the same order, so the layout becomes muscle memory. L2 is everything else, linked, unbounded.
-6. **Standard views.** Every chunk page carries the fixed view set from [`reference/views.md`](reference/views.md): where it sits, how it works, states, traceability, decisions, review entry points. Context views come from a LikeC4 model when the toolchain is available, Mermaid otherwise. Same look everywhere.
+6. **Standard views.** Every chunk page carries the fixed view set from [`reference/views.md`](reference/views.md): where it sits, how it works, states, traceability, decisions, review entry points. Diagrams are hand-placed SVG; context views come from a LikeC4 model when the toolchain is available. Same look everywhere.
 7. **Subagents never write the ledger.** The main agent folds each handback into the chunk page and ledger, so a subagent's choices are visible to the human.
 8. **It dissolves.** `elih/` lives only while the feature is being built. When every chunk is merged or deployed it becomes one feature doc in the source repo, written as a description of what exists, and the directory goes. The doc keeps the decisions and reasons a thread or a PR would lose, and names what it read and what it overturned, so the human can carry it into the context graph.
 
@@ -78,7 +78,7 @@ The briefing is the same HTML with L1 and L2 collapsed. The human presents the b
 
 1. Resolve what can be resolved: every `recommended` and `assumed` row is either flipped to `approved` or `rejected` by the human, or stays and is listed as still open in the doc. Every `sources` row has a result.
 2. `elih.py dissolve` writes `docs/<slug>.md` beside `elih/` (pass `-o` to put it elsewhere). It refuses while a chunk is short of `merged` unless `--partial` is given, and then the doc says which parts are unfinished.
-3. Read the doc as a stranger. It describes what exists, in the present tense. Rewrite any sentence that only made sense during the build ("we decided", "the agent assumed"). Keep every Editor's note.
+3. Read the doc as a stranger. It describes what exists, in the present tense. GitHub doesn't render svg fences, so redraw each one as a ` ```mermaid ` block of the same structure. Rewrite any sentence that only made sense during the build ("we decided", "the agent assumed"). Keep every Editor's note.
 4. When chunks span more than one repo, split the chunk sections into a doc per repo, each with the full Decisions and Terms sections, and keep the frontmatter on each.
 5. Remove `elih/` with `git rm -r` in the same commit as the doc. Link the doc from the repo's docs index if one exists.
 6. Tell the human the doc path and that it is ready to ingest into the context graph. Elih does not run the ingest.
