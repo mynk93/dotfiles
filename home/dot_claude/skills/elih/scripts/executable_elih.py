@@ -6,6 +6,7 @@
     elih.py render <elih-dir> [-o out.html] [--no-likec4] [--png] [--flat]
     elih.py ack    <elih-dir> [--date YYYY-MM-DD]
     elih.py status <elih-dir>
+    elih.py shots  <elih-dir> [-o out-dir]   (needs Playwright)
 
 Source of truth is <elih-dir>/ledger.yaml plus board.md and chunks/*.md.
 The HTML is a derived view. Markdown renders client-side with marked.js;
@@ -465,7 +466,7 @@ def board_tab(L, board_md, views_dir):
     <h2>🧭 The flow, revealed <span class="hl">one chunk at a time</span></h2>
     <section class="card stepper">
       <div class="stepper__nav"><button class="btn" id="prev">← Back</button><div class="dots">{dots}</div><button class="btn" id="next">Next →</button></div>
-      <div class="legend"><span class="sw new"></span> new in this pass <span class="sw earlier"></span> added earlier <span class="sw existing"></span> unchanged <span class="sw legacy"></span> legacy, stays until retired</div>
+      <div class="legend"><span class="sw new"></span> new in this pass <span class="sw earlier"></span> added earlier <span class="sw existing"></span> unchanged <span class="sw legacy"></span> legacy, stays until retired <span class="sw person"></span> person <span class="sw store"></span> store</div>
       {panes}
     </section>
     <h2>🗺️ Context: who talks to <span class="hl">whom</span></h2>
@@ -551,7 +552,7 @@ CSS = r'''
     .diagram-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem 1.25rem;margin:.6rem 0 0;font-size:13px;color:var(--ink-muted)}
     .diagram-legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:.4rem;border:1.25px solid var(--brand-navy);background:var(--surface)}
     .diagram-legend i.k-new{background:var(--orange-soft);border:2px solid var(--brand-orange)}.diagram-legend i.k-earlier{background:var(--surface-2)}.diagram-legend i.k-legacy{border-style:dashed;border-color:var(--ink-muted)}
-    .diagram-legend i.k-ext{background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-key{background:var(--brand-navy)}.diagram-legend i.k-node{background:var(--surface)}.diagram-legend i.k-warn{border-style:dashed;border-color:var(--orange-hover)}
+    .diagram-legend i.k-ext{background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-key{background:var(--brand-navy)}.diagram-legend i.k-node{background:var(--surface)}.diagram-legend i.k-person{border-radius:7px;width:22px}.diagram-legend i.k-store{border-radius:7px/4px;background:var(--surface-2);border-color:var(--ink-muted)}.diagram-legend i.k-warn{border-style:dashed;border-color:var(--orange-hover)}
     .diagram-legend i.k-call,.diagram-legend i.k-return{width:22px;height:0;border:0;border-radius:0;border-top:1.5px solid var(--brand-navy);vertical-align:4px;background:none}.diagram-legend i.k-return{border-top-style:dashed}
     .dg-node{fill:#FFF;stroke:#003D67;stroke-width:1.25}.dg-earlier{fill:#F2EDE3;stroke:#003D67;stroke-width:1.25}.dg-new{fill:#FDF1E7;stroke:#EC792B;stroke-width:2}
     .dg-legacy{fill:#FFF;stroke:#6B6A66;stroke-width:1.25;stroke-dasharray:5 4}.dg-warn{fill:#FFF;stroke:#D86919;stroke-width:1.25;stroke-dasharray:4 4}
@@ -560,6 +561,7 @@ CSS = r'''
     .dg-legacy~.dg-name{fill:#6B6A66}.dg-key~.dg-name{fill:#FFF}.dg-key~.dg-sub,.dg-key~.dg-code{fill:#FFF;fill-opacity:.8}
     .dg-lane{font:600 13px var(--font-body);fill:#003D67}.dg-label{font:400 11.5px var(--font-body);fill:#6B6A66}
     .dg-edge{fill:none;stroke:#003D67;stroke-width:1.25}.dg-return{stroke-dasharray:5 4}.dg-hot{stroke:#EC792B;stroke-width:2.5}.dg-life{fill:none;stroke:#6B6A66;stroke-width:1.25;stroke-dasharray:3 4}
+    .dg-start{text-anchor:start}.dg-rim{fill:none}.dg-tab{fill:#F2EDE3;stroke:#003D67;stroke-opacity:.4;stroke-width:1.25}
     .flat .tab,.flat .stepper .pane{display:block}
     .md pre{background:#1B1B1A;border-radius:12px;overflow-x:auto}
     figure.view{margin:0;text-align:center}figure.view img{max-width:100%;border-radius:12px;border:1px solid var(--border)}figure.view figcaption{font-size:.85rem;color:var(--ink-muted);margin-top:.4rem}
@@ -579,7 +581,7 @@ CSS = r'''
     .btn{font:600 .9rem var(--font-body);border:1px solid var(--brand-navy);background:var(--surface);color:var(--brand-navy);padding:.4rem .9rem;border-radius:999px;cursor:pointer}.btn:hover{background:var(--brand-navy);color:#fff}
     .dots{display:flex;gap:.4rem}.dot{width:12px;height:12px;border-radius:50%;border:1px solid var(--brand-navy);background:var(--surface);cursor:pointer;padding:0}.dot.active{background:var(--brand-orange);border-color:var(--brand-orange)}
     .legend{font-size:.8rem;color:var(--ink-muted);margin:.25rem 0 .5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.sw{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #003D67;margin-left:.5rem}
-    .sw.new{background:#FDF1E7;border-color:#EC792B;border-width:2px}.sw.earlier{background:#F2EDE3}.sw.existing{background:#fff}.sw.legacy{background:#fff;border-style:dashed;border-color:#6B6A66}
+    .sw.person{border-radius:7px;width:22px}.sw.store{border-radius:7px/4px;background:#F2EDE3;border-color:#6B6A66}.sw.new{background:#FDF1E7;border-color:#EC792B;border-width:2px}.sw.earlier{background:#F2EDE3}.sw.existing{background:#fff}.sw.legacy{background:#fff;border-style:dashed;border-color:#6B6A66}
     ul.since li{margin:.3rem 0}ul.paths{columns:2;font-size:.85rem}details summary{cursor:pointer;color:var(--brand-orange);font-weight:600}
     footer{margin-top:3.5rem;padding-top:1.25rem;border-top:1px solid var(--border);color:var(--ink-muted);font-size:.875rem}
 '''
@@ -676,6 +678,34 @@ def render(src: Path, out: Path, use_likec4: bool = True, png: bool = False, fla
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)
     return out
+
+
+def shots(src: Path, out_dir: Path) -> list:
+    """Render every tab and pass at once, then screenshot each diagram on its own. Returns (png, caption) pairs."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        sys.exit("shots needs Playwright: uv run --with pyyaml --with playwright python elih.py shots <dir>; first run: uvx playwright install chromium")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for old in out_dir.glob("*.png"):
+        old.unlink()
+    page_path = render(src, out_dir / "flat.html", use_likec4=False, flat=True)
+    written = []
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 900}, device_scale_factor=2)
+        page.goto(page_path.resolve().as_uri(), wait_until="networkidle")
+        page.evaluate("document.fonts.ready")
+        figures = page.locator("figure.diagram")
+        for i in range(figures.count()):
+            fig = figures.nth(i)
+            tab = fig.evaluate("f => (f.closest('.tab') || {}).id || 'page'").replace("tab-", "", 1)
+            caption = fig.evaluate("f => (f.querySelector('figcaption') || {}).textContent || ''").strip()
+            png = out_dir / f"{i + 1:02d}-{tab}.png"
+            fig.screenshot(path=str(png))
+            written.append((png, caption))
+        browser.close()
+    return written
 
 
 def set_feature_field(src: Path, key: str, value: str):
@@ -931,6 +961,7 @@ def main(argv=None):
     p = sp.add_parser("init"); p.add_argument("dir"); p.add_argument("--feature", required=True); p.add_argument("--name", default="")
     p = sp.add_parser("lint"); p.add_argument("dir")
     p = sp.add_parser("render"); p.add_argument("dir"); p.add_argument("-o", "--out"); p.add_argument("--no-likec4", action="store_true"); p.add_argument("--png", action="store_true", help="export LikeC4 views as PNG (needs Playwright Chromium) instead of Mermaid"); p.add_argument("--flat", action="store_true", help="show every tab and stepper pass at once, for screenshots and the render check")
+    p = sp.add_parser("shots"); p.add_argument("dir"); p.add_argument("-o", "--out", help="directory for the PNGs; default <elih-dir>/out/shots")
     p = sp.add_parser("ack"); p.add_argument("dir"); p.add_argument("--date", default=dt.date.today().isoformat())
     p = sp.add_parser("status"); p.add_argument("dir")
     p = sp.add_parser("dissolve"); p.add_argument("dir"); p.add_argument("-o", "--out", help="doc path; default docs/<slug>.md beside the elih dir"); p.add_argument("--partial", action="store_true", help="allow chunks that are not merged or deployed")
@@ -954,6 +985,13 @@ def main(argv=None):
         out = Path(a.out) if a.out else src / "out" / "index.html"
         path = render(src, out, use_likec4=not a.no_likec4, png=a.png, flat=a.flat)
         print(path)
+        return 0
+    if a.cmd == "shots":
+        errors = [m for lvl, m in lint(src) if lvl == "error"]
+        if errors:
+            print("\n".join("error: " + e for e in errors)); return 1
+        for png, caption in shots(src, Path(a.out) if a.out else src / "out" / "shots"):
+            print(f"{png}  {caption}")
         return 0
     if a.cmd == "ack":
         ack(src, a.date)

@@ -34,7 +34,7 @@ docs/<slug>.md       what elih/ becomes on dissolve; elih/ is removed in the sam
 
 The ledger schema, states, stage rules, Editor's notes and the style guide are in [`reference/ledger-schema.md`](reference/ledger-schema.md). The kickoff interview is [`reference/grilling.md`](reference/grilling.md). Templates are in `templates/`.
 
-The script is `scripts/elih.py` (Python 3.9+, PyYAML); `--help` lists the subcommands.
+The script is `scripts/elih.py` (Python 3.9+, PyYAML); `--help` lists the subcommands. `render` stamps today's date and the branch head into `feature.status_date` and `feature.head` in `ledger.yaml`; that rewrite is expected.
 
 ## Procedure
 
