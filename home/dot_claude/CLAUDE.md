@@ -1,163 +1,148 @@
 # Global preferences
 
-This instructions are sacred and superseed all other instructions that you may receive if there is conflicting information. Follow them as prescribed.
-
 ## Response Style
 
-- **RS-1 (MUST NOT)** Share timeline or effort estimates of development work.
-- **RS-2 (MUST)** Lead with substance. Skip validation phrases ("Great question!"). Provide the answer or solution immediately.
-- **RS-3 (SHOULD)** Match my technical level. I provide context with specific tools, versions, and constraints. Respond at that level without simplification.
-- **RS-4 (MUST)** Structure for iteration. Use clear, numbered points or labeled sections and subsections so I can reference specific parts in follow-up corrections or responses
-- **RS-5 (SHOULD)** Accept corrections cleanly. When I say "not what I was looking for" and provide an alternative, adjust without defensive explanation.
-- **RS-6 (MUST)** First principles when exploring. When I ask "what are my options" or mention "first principles" provide frameworks/categories before specific implementation recommendations.
-- **RS-7 (MUST)** Do not ask a clarifying question when you have a recommended
+- **RS-1** Do not share timeline or effort estimates of development work.
+- **RS-4** Structure for iteration. Use numbered points or labeled
+  sections and subsections so I can reference specific parts in follow-ups.
+- **RS-6** First principles when exploring. When I ask "what are my
+  options" or mention "first principles", give frameworks/categories before
+  specific implementation recommendations.
+- **RS-7** Do not ask a clarifying question when you have a recommended
   answer. Take the recommended option, state the assumption in one line, and
   continue. Ask only when no option is clearly better AND the choices produce
   materially different work.
-- **RS-8 (MUST)** Do not stop to report progress or request confirmation
+- **RS-8** Do not stop to report progress or request confirmation
   mid-task. Finish the task, then report once.
+
+## Writing
+
+The default for all prose you write for me or on my behalf: replies, reports,
+PR and issue bodies, commit bodies, docs, Slack and email drafts. The reader is
+a peer at my technical level who is short on time. The `clear-writing` skill
+holds the full method and worked examples; use it when I ask you to revise a
+draft.
+
+Settle structure first, then edit the line.
+
+Structure:
+
+- **CW-1** Answer first. The first sentence states the conclusion or
+  recommendation, so the reader can stop the moment they are convinced. Add
+  framing (situation, complication, question) only when the answer would not
+  make sense without it.
+- **CW-2** Support sits under the answer as a pyramid: each point answers the
+  "so what?" raised by the point above it, and the points in a group neither
+  overlap nor leave gaps. Cut or move anything that fails the test.
+- **CW-3** Each paragraph stays on one topic. Keep the subjects of consecutive
+  sentences consistent, open each sentence with what the reader already knows,
+  and end it on what is new. Put the paragraph's point in its first sentence.
+
+Line:
+
+- **CW-4** The subject is whoever acts and the verb is what they do. Recover
+  verbs buried in nouns ("make a decision" → "decide", "there was a reduction
+  in costs" → "costs fell").
+- **CW-5** Start fast: the sentence opens on its subject, with no windup.
+- **CW-6** Default to short sentences, one move each, and vary their length by
+  ear. When sentences are in the right order they connect themselves, so fix
+  the order instead of adding "moreover" or "additionally". Leave the obvious
+  inference to the reader.
+- **CW-7** Keep every number, name, date, and concrete detail. Repeat the
+  clearest word instead of cycling synonyms. Passive voice is right when the
+  doer is unknown or beside the point, and a long sentence is right when it
+  builds.
+
+Before sending, check that the first sentence answers the question I actually
+have and that nothing remains that could be cut without losing meaning.
 
 ## Git
 
 ### Commit messages
 
-Blend [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
-(structure) with [cbea.ms/git-commit](https://cbea.ms/git-commit/) (craft of the
-subject + body). CC governs the machine-readable prefix; cbea governs the prose.
+Follow Conventional Commits 1.0.0, with these specifics:
 
-- **GH-1 (MUST)** Header format: `type(scope)?: description`
-  - **type** - lowercase, one of: `feat` (new capability), `bugfix` (bug fix),
-    `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` (tooling / deps /
-    housekeeping), `revert`.
-  - **scope** - optional, the area touched (`feat(query): …`). Omit when the
-    change spans the repo.
+- **GH-1** Header format: `type(scope)?: description`
+  - **type** - one of: `feat`, `bugfix` (not `fix`), `docs`, `refactor`,
+    `perf`, `test`, `build`, `ci`, `chore`, `revert`.
   - **description** - imperative mood, capitalized first word, no trailing
-    period. It must complete the sentence "If applied, this commit will
-    *<description>*" (`Add portal-app note`, not `Added` / `adds`).
-  - **length** - aim for ≤ 50 chars, never exceed ~72 (the `type(scope):`
-    prefix counts toward the budget).
-- **GH-2 (SHOULD)** Add a body (blank line after the header) when the *why*
-  isn't obvious. Explain **what changed and why** - motivation, and contrast
-  with prior behavior - not **how**; the diff already shows how. Wrap at 72
-  chars.
-- **GH-3 (MUST)** Breaking changes: append `!` after the type/scope
-  (`feat(api)!: …`) **and/or** add a `BREAKING CHANGE: <what + migration>`
-  footer.
-- **GH-4 (SHOULD)** Footers use git-trailer style (`token: value`), one per
-  line - e.g. `Refs: #123`, `Reviewed-by: …`.
-- **GH-5 (SHOULD NOT)** Refer to Claude or Anthropic in commit messages; no
-  emoji, no "generated by" trailers, no filler body that restates the header.
+    period (`Add portal-app note`, not `Added` / `adds`).
+  - **length** - aim for ≤ 50 chars, never exceed ~72, prefix included.
+- **GH-2** Add a body when the *why* isn't obvious. Explain what
+  changed and why, in contrast with prior behavior; the diff already shows
+  how. Wrap at 72 chars.
+- **GH-5** Do not refer to Claude or Anthropic in commit messages; no
+  emoji, no "generated by" or co-author trailers.
 
 ### GitHub Markdown (issue / PR / comment bodies)
 
-- **GH-6 (MUST)** Do NOT hard-wrap prose. Write each paragraph as a single
+- **GH-6** Do NOT hard-wrap prose. Write each paragraph as a single
   unbroken line; separate paragraphs with a blank line. GitHub renders every
-  newline in issue / PR / comment bodies as a literal line break (`<br>`), so
-  manual wrapping shows up as ragged mid-sentence breaks. This is the *opposite*
-  of GH-2: commit bodies are wrapped at 72; GitHub Markdown is left to reflow.
-- **GH-7 (SHOULD)** Leave code fences, tables, and embedded YAML/JSON literal -
-  their lines are meant to stay intact (long lines scroll horizontally, which is
-  fine). The no-wrap rule is about prose only.
+  newline in these bodies as a line break, so wrapping shows up as ragged
+  mid-sentence breaks. This is the opposite of GH-2. Code fences, tables, and
+  embedded YAML/JSON keep their own lines.
 
 ### GitHub Issues
 
-- Github issues are meant to track problems. 
-- When creating a new issues, Focus on what the core problem is, what is known, what are the symptoms. Focus on the countours of the problem.
-- DO NOT talk about solutioning within the GH Issue
+- An issue tracks a problem. Describe the core problem, what is known, and the
+  symptoms: the contours of the problem.
+- Keep solutions out of the issue; they belong in the PR.
 
 ### GitHub Pull Requests
 
-- Ideally every PR you open should have a linked Issue.
-- The PR should build on top of the Issue and start talking about how the solution is being thought about. It should clearly explain the choices and trade offs made. 
-- When first creating a PR, mark it as a draft PR. Its upto the user when they choose to mark it as ready for review.
+- Every PR you open should have a linked issue where possible.
+- The PR builds on the issue: explain how the solution was thought about, the
+  choices made, and the trade-offs.
+- Open new PRs as drafts. I decide when to mark one ready for review.
 
 ### Git worktrees
 
-- **WT-1 (SHOULD)** Keep worktrees in-repo under a gitignored `.worktrees/`
-  directory (`.worktrees/<branch-or-task>`), not sibling dirs - self-contained,
-  relocatable, and easy to clean up. Ensure `.worktrees/` is in the repo's
-  `.gitignore`.
-- **WT-2 (SHOULD)** Name a worktree after its branch or task
-  (`.worktrees/feature-x`, `.worktrees/issue-123`), never ad-hoc.
-- **WT-3 (MUST)** A fresh worktree lacks gitignored runtime files (`.venv`,
+- **WT-1** Keep worktrees in-repo under a gitignored `.worktrees/`
+  directory, named after the branch or task (`.worktrees/feature-x`,
+  `.worktrees/issue-123`), not in sibling dirs. Ensure `.worktrees/` is in the
+  repo's `.gitignore`.
+- **WT-3** A fresh worktree lacks gitignored runtime files (`.venv`,
   `.env*`). Link them from the primary checkout before running anything - use
   the repo's `scripts/setup-worktree.sh` if present, else symlink manually.
   Prefer symlinking the primary's `.venv` over rebuilding it.
-- **WT-4 (SHOULD)** Treat worktrees as ephemeral: create → work → merge or
-  discard → `git worktree remove`. Don't let orphans accumulate.
+- **WT-4** Worktrees are ephemeral: `git worktree remove` once the
+  work is merged or discarded.
 
-## Writing Functions Best Practices
+## Writing functions
 
-When evaluating whether a function you implemented is good or not, use this checklist:
+- Extract a separate function only when it is used in more than one place, or
+  it is the only way to unit test the logic, or the original is so hard to
+  follow that it needs comments everywhere.
+- Prefer functions that can be tested without mocking core dependencies (SQL,
+  Redis). Where that is not possible, cover them with an integration test.
 
-1. Can you read the function and HONESTLY easily follow what it's doing? If yes, then stop here.
-2. Does the function have very high cyclomatic complexity? (number of independent paths, or, in a lot of cases, number of nesting if if-else as a proxy). If it does, then it's probably sketchy.
-3. Are there any common data structures and algorithms that would make this function much easier to follow and more robust? Parsers, trees, stacks / queues, etc.
-4. Are there any unused parameters in the function?
-5. Are there any unnecessary type casts that can be moved to function arguments?
-6. Is the function easily testable without mocking core features (e.g. sql queries, redis, etc.)? If not, can this function be tested as part of an integration test?
-7. Does it have any hidden untested dependencies or any values that can be factored out into the arguments instead? Only care about non-trivial dependencies that can actually change or affect the function.
-8. Brainstorm 3 better function names and see if the current name is the best, consistent with rest of codebase.
+## Writing tests
 
-IMPORTANT: you SHOULD NOT refactor out a separate function unless there is a compelling need, such as:
-  - the refactored function is used in more than one place
-  - the refactored function is easily unit testable while the original function is not AND you can't test it any other way
-  - the original function is extremely hard to follow and you resort to putting comments everywhere just to explain it
-
-## Writing Tests Best Practices
-
-When evaluating whether a test you've implemented is good or not, use this checklist:
-
-1. SHOULD parameterize inputs; never embed unexplained literals such as 42 or "foo" directly in the test.
-2. SHOULD NOT add a test unless it can fail for a real defect. Trivial asserts (e.g., expect(2).toBe(2)) are forbidden.
-3. SHOULD ensure the test description states exactly what the final expect verifies. If the wording and assert don’t align, rename or rewrite.
-4. SHOULD compare results to independent, pre-computed expectations or to properties of the domain, never to the function’s output re-used as the oracle.
-5. SHOULD follow the same lint, type-safety, and style rules as prod code (prettier, ESLint, strict types).
-6. SHOULD express invariants or axioms (e.g., commutativity, idempotence, round-trip) rather than single hard-coded cases whenever practical. 
-7. Unit tests for a function should be grouped under `describe(functionName, () => ...`.
-8. Use `expect.any(...)` when testing for parameters that can be anything (e.g. variable ids).
-9. ALWAYS use strong assertions over weaker ones e.g. `expect(x).toEqual(1)` instead of `expect(x).toBeGreaterThanOrEqual(1)`.
-10. SHOULD test edge cases, realistic input, unexpected input, and value boundaries.
-11. SHOULD NOT test conditions that are caught by the type checker.
+1. Compare results to independent, pre-computed expectations or to properties
+   of the domain, never to the function's own output re-used as the oracle.
+2. Express invariants (commutativity, idempotence, round-trip) rather than
+   single hard-coded cases whenever practical.
+3. Use the strongest assertion available: `expect(x).toEqual(1)`, not
+   `expect(x).toBeGreaterThanOrEqual(1)`.
+4. Parameterize inputs; no unexplained literals such as 42 or "foo".
+5. Skip conditions the type checker already catches.
+6. In Jest/Vitest, group a function's unit tests under
+   `describe(functionName, ...)` and use `expect.any(...)` for values that can
+   be anything (e.g. generated ids).
 
 ## Background jobs and shells - prefer cmux
 
-When spawning background jobs, long-lived shells, dev servers, log tails, or
-any work you'd otherwise run via `Bash(run_in_background=true)` or the Agent
-tool, use the **cmux** skill instead whenever `CMUX_SOCKET_PATH` is set.
-
-**Why:** cmux output is visible to the user in a real pane they can watch
-and interrupt. Hidden background jobs and subagent calls are opaque - the
-user can't see progress or steer mid-flight.
-
-**How to apply:**
-- One pane (cmux workspace) per logical task. Name it (`--name "🤖 <role>"`)
-  so it's legible in the sidebar.
-- Multiple shells for the same task → multiple surfaces (splits) inside
-  that pane via `cmux new-split`.
-- Still fine to use plain `Bash` for quick one-shot commands (<30s, single
-  round, no streaming needed). cmux is for anything the user would want
-  to see or interact with.
-- Follow the using-cmux skill's lifecycle rules (refresh-surfaces before
-  read-screen, cleanup on completion, etc.).
+When `CMUX_SOCKET_PATH` is set, run background jobs, long-lived shells, dev
+servers, log tails, and subagent work through the **using-cmux** skill instead
+of `Bash(run_in_background=true)` or the Agent tool, and follow that skill's
+naming and lifecycle rules. I can watch and interrupt a cmux pane; hidden
+background jobs and subagents are opaque to me. Plain `Bash` is fine for quick
+one-shot commands (<30s, no streaming).
 
 ## Searching code - prefer rg over grep
 
-When searching file contents, prefer `rg` (ripgrep) over `grep`. Reach for the
-dedicated **Grep tool** first; drop to `rg` on the command line when you need a
-pipeline or a flag the tool doesn't expose. Use raw `grep` only when `rg` is
-genuinely unavailable.
-
-**Why:** my interactive shell is zsh, where `NOMATCH` is on by default. An
-unquoted glob token like `--include=*.py` is filename-expanded *before* the
-command runs, and when it matches nothing zsh aborts the whole command with
-`no matches found` - it does **not** pass the pattern through literally the way
-bash does. `rg` takes globs as values (`-g '*.py'`), respects `.gitignore`, and
-recurses by default, sidestepping the trap. (This is about my tool usage, not
-the shell alias - `grep` stays unaliased at the shell per the dotfiles repo.)
-
-**How to apply:**
-- `rg "pattern" path/` instead of `grep -rn "pattern" path/`.
-- Scope by file type with `-g '*.py'` or `-t py`, always quoting the glob.
-- Keep any literal glob metacharacter (`*`, `?`, `[…]`) quoted so zsh can't eat
-  it, even on the rare `grep` fallback.
+Use the Grep tool first, `rg` on the command line when you need a pipeline or
+a flag the tool lacks, and raw `grep` only when `rg` is unavailable. My shell
+is zsh with `NOMATCH` on: an unquoted glob that matches nothing
+(`--include=*.py`) aborts the whole command. Always quote globs
+(`rg -g '*.py' "pattern" path/`).
