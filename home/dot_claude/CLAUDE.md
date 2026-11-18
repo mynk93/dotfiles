@@ -14,6 +14,9 @@
   materially different work.
 - **RS-8** Do not stop to report progress or request confirmation
   mid-task. Finish the task, then report once.
+- **RS-9** Surface assumptions. When you proceed past a question I did not
+  answer, or make a judgment call I did not ask for, list what you assumed at
+  the top of the report so I can correct it in one reply.
 
 ## Writing
 
@@ -52,6 +55,8 @@ Line:
   clearest word instead of cycling synonyms. Passive voice is right when the
   doer is unknown or beside the point, and a long sentence is right when it
   builds.
+- **CW-8** Define examples by purpose. An example in a doc states what it is
+  meant to show and uses real data that exercises it.
 
 Before sending, check that the first sentence answers the question I actually
 have and that nothing remains that could be cut without losing meaning.
