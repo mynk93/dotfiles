@@ -23,8 +23,6 @@
 #   --skip-configs     don't touch ~/.gitconfig or ~/.config/{bat,btop,glow,git,lazygit}
 #   --skip-shell       don't touch ~/.bashrc
 #   --claude-code      also install the Claude Code CLI (login stays manual)
-#   --claudex          also install CLIProxyAPI + the claudex harness (opt-in;
-#                      needs a one-time device-code login, see the notes it prints)
 #   --t3               also install the T3 Code server + Codex CLI, write the
 #                      nvm PATH shims, and register the supervised s6 services
 
@@ -41,7 +39,6 @@ DO_CLAUDE=1
 DO_CONFIGS=1
 DO_SHELL=1
 DO_CLAUDE_CODE=0
-DO_CLAUDEX=0
 DO_T3=0
 
 while [[ $# -gt 0 ]]; do
@@ -53,19 +50,16 @@ while [[ $# -gt 0 ]]; do
         --skip-configs) DO_CONFIGS=0; shift ;;
         --skip-shell)   DO_SHELL=0;   shift ;;
         --claude-code)  DO_CLAUDE_CODE=1; shift ;;
-        --claudex)      DO_CLAUDEX=1; shift ;;
         --t3)           DO_T3=1;      shift ;;
-        -h|--help)      sed -n '2,30p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        -h|--help)      sed -n '2,27p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "bootstrap: unknown flag $1" >&2; exit 1 ;;
     esac
 done
 
 # The service layer -- run scripts in ~/.local/bin and s6 definitions in
-# ~/.config/s6-user -- is installed whole, never per-service. Both --t3 and
-# --claudex need part of it (t3-serve, cliproxyapi), and splitting it would
-# mean a box that ran one flag has definitions referencing scripts the other
-# flag installs. Registering a service is separate and idempotent, so copying
-# a definition you do not use costs nothing.
+# ~/.config/s6-user -- is installed whole, never per-service. Registering a
+# service is separate and idempotent, so copying a definition you do not use
+# costs nothing.
 install_service_layer() {
     echo "==> Installing supervised-service scripts"
     mkdir -p ~/.local/bin ~/.config/s6-user ~/.config/t3
@@ -80,11 +74,7 @@ install_service_layer() {
 # ── 1. CLI binaries ────────────────────────────────────────
 if [[ "$DO_TOOLS" == 1 ]]; then
     echo "==> Installing CLI tools"
-    if [[ "$DO_CLAUDEX" == 1 ]]; then
-        "$REPO/linux/install-tools.sh" --with-claudex
-    else
-        "$REPO/linux/install-tools.sh"
-    fi
+    "$REPO/linux/install-tools.sh"
     echo
 fi
 
@@ -212,58 +202,10 @@ PY
     echo
 fi
 
-# ── 6. claudex + CLIProxyAPI ───────────────────────────────
-# The proxy holds upstream OAuth credentials, so nothing here is committed:
-# the config comes from a template with a placeholder, and the API key is
-# generated on this box. The key is never regenerated once it exists, so a
-# re-run cannot invalidate a proxy you already logged in to; the config
-# itself is rewritten every run so template changes actually land.
-if [[ "$DO_CLAUDEX" == 1 ]]; then
-    echo "==> Installing claudex + CLIProxyAPI"
-    install -m 755 "$REPO/home/dot_local/bin/executable_claudex" ~/.local/bin/claudex
-    echo "    ~/.local/bin/claudex installed"
-
-    mkdir -p ~/.config/cliproxyapi && chmod 700 ~/.config/cliproxyapi
-    if [[ -f ~/.config/cliproxyapi/key ]]; then
-        echo "    reusing existing proxy key"
-        api_key="$(cat ~/.config/cliproxyapi/key)"
-    else
-        api_key="sk-cliproxy-$(head -c 20 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-        printf '%s' "$api_key" > ~/.config/cliproxyapi/key
-        chmod 600 ~/.config/cliproxyapi/key
-        echo "    generated a proxy key -> ~/.config/cliproxyapi/key (mode 600)"
-    fi
-
-    # Always regenerate from the template so alias/tier changes propagate;
-    # the key is substituted back in, so an existing device login survives.
-    # Hand edits to config.yaml do not — put them in the template instead.
-    sed "s|__API_KEY__|$api_key|" "$REPO/linux/cliproxyapi.yaml" \
-        > ~/.config/cliproxyapi/config.yaml
-    chmod 600 ~/.config/cliproxyapi/config.yaml
-    echo "    config.yaml regenerated (loopback only, management API disabled)"
-
-    install_service_layer
-    if [[ -d /var/run/s6/services ]]; then
-        ~/.local/bin/s6-user-services-install
-    fi
-
-    if [[ -d ~/.cli-proxy-api ]] && compgen -G ~/.cli-proxy-api/'codex-*.json' >/dev/null; then
-        echo "    upstream Codex credential already present"
-    else
-        echo
-        echo "    ONE-TIME LOGIN REQUIRED — no upstream credential yet. Run:"
-        echo "      ~/.local/bin/cli-proxy-api -config ~/.config/cliproxyapi/config.yaml \\"
-        echo "        -codex-device-login"
-        echo "    It prints a code to enter in a browser on any device; no browser"
-        echo "    is needed on this box. Then open a new shell to start the proxy."
-    fi
-    echo
-fi
-
-# ── 7. T3 Code + supervised services ───────────────────────
+# ── 6. T3 Code + supervised services ───────────────────────
 # T3 Code drives agent sessions against this box from a browser or phone.
 # `t3 service install` writes a systemd unit and these boxes have no systemd,
-# so s6 supervises it, the same way it supervises the proxy.
+# so s6 supervises it.
 #
 # Everything here is idempotent, so this is also the upgrade path. Logging in
 # is not done here: `t3 connect link --headless` is a one-time interactive

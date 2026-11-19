@@ -23,9 +23,8 @@
 # A definition may also carry an executable `check`. It runs before
 # registration with ~/.local/bin on PATH, and a non-zero exit skips the service
 # with a note. That is what lets the whole service layer be installed as one
-# unit: a box that ran --claudex but not --t3 has a t3-serve definition whose
-# binary does not exist, and without the check s6 would restart it every five
-# seconds forever.
+# unit: a definition whose binary does not exist is skipped, where s6 would
+# otherwise restart it every five seconds forever.
 #
 # Idempotent by construction: an already-registered service is left exactly as
 # it is, never rewritten. A service somebody stopped by hand should stay

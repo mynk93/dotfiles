@@ -105,7 +105,7 @@ limit on what you examined, and judge the diff on reading alone.
 <no_delegation>
 Do this review yourself, in this session, sequentially. Do not delegate any
 part of it: no `codex exec`, `codex resume`, or nested `codex` invocations of
-any kind, no `claude` / `claudex`, no `cmux` panes or workspaces, no background
+any kind, no `claude`, no `cmux` panes or workspaces, no background
 workers, and do not load another review skill (`code-review`, `simplify`, or
 similar). Those skills fan out into
 parallel model sessions — one such fan-out burned an entire plan quota before
