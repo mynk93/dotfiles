@@ -77,6 +77,46 @@ install_service_layer() {
     echo "    ~/.local/bin + ~/.config/s6-user populated"
 }
 
+# AWS CLI v2 ships as a bundled installer behind a zip, not as a GitHub
+# Release asset, so it cannot join the install-tools.sh fetcher the way the
+# static binaries do -- the same reason Claude Code has its own section
+# below. The installer owns its install dir and symlinks `aws` and
+# `aws_completer` into the bin dir.
+#
+# Both dirs are under $HOME even though these boxes do have sudo. A
+# /usr/local install would not survive a pod restart: only $HOME is
+# persistent here, everything else comes back from the image.
+#
+# No credential is provisioned. Signing in is a one-time interactive step
+# per box, documented in linux/README.md.
+install_awscli() {
+    local install_dir="$HOME/.local/aws-cli" bin_dir="$HOME/.local/bin"
+    local url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+    local tmp update=()
+
+    echo "==> Installing AWS CLI v2"
+    if ! command -v unzip >/dev/null 2>&1; then
+        echo "    skipped -- unzip not found" >&2
+        return 0
+    fi
+
+    # The bundled installer rejects --update on a first run and requires it
+    # on every later one, so the flag is chosen from what is already there.
+    # This is what AWS's own downloader script does.
+    if [[ -e "$bin_dir/aws" ]]; then
+        update=(--update)
+    fi
+
+    tmp="$(mktemp -d)"
+    curl -fsSL "$url" -o "$tmp/awscliv2.zip"
+    unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+    mkdir -p "$install_dir" "$bin_dir"
+    "$tmp/aws/install" --install-dir "$install_dir" --bin-dir "$bin_dir" "${update[@]}"
+    rm -rf "$tmp"
+
+    printf '    %s\n' "$("$bin_dir/aws" --version 2>&1 | head -1)"
+}
+
 # ── 1. CLI binaries ────────────────────────────────────────
 if [[ "$DO_TOOLS" == 1 ]]; then
     echo "==> Installing CLI tools"
@@ -85,6 +125,8 @@ if [[ "$DO_TOOLS" == 1 ]]; then
     else
         "$REPO/linux/install-tools.sh"
     fi
+    echo
+    install_awscli
     echo
 fi
 
