@@ -26,8 +26,7 @@ exec bash -l
 ```
 
 `--git-name` and `--git-email` set the git identity. `--claude-code` installs the Claude
-Code CLI (logging in stays a manual step); `--claudex` additionally installs
-CLIProxyAPI and the claudex harness (see below); `--t3` installs the T3 Code
+Code CLI (logging in stays a manual step); `--t3` installs the T3 Code
 server and the Codex CLI and registers the supervised services (it needs a
 node from nvm under `~/.config/nvm` first, see below). Flags `--skip-tools`,
 `--skip-claude`, `--skip-configs`, `--skip-shell` narrow what runs; all
@@ -47,12 +46,10 @@ steps are idempotent, so re-running is the upgrade path.
 | `~/.gitconfig` | `linux/gitconfig` | no `[user]` block, see below |
 | `~/.config/git/local` | generated | git identity, never committed |
 | `~/.config/{bat,btop,glow,git,lazygit}/` | `home/dot_config/` | identical on both platforms |
-| `~/.local/bin/claudex` | `home/dot_local/bin/` | `--claudex` only |
-| `~/.config/cliproxyapi/` | `linux/cliproxyapi.yaml` | `--claudex` only, key generated locally |
 | `~/.local/bin/{node,npm,npx,t3,codex}` | generated | `--t3` only, nvm PATH shims |
 | `~/.config/nvm/.../lib/node_modules/{t3,@openai/codex}` | npm | `--t3` only |
-| `~/.local/bin/*-run`, `s6-user-services-install` | `linux/bin/` | `--t3` / `--claudex`, supervised-service scripts |
-| `~/.config/s6-user/` | `linux/s6-user/` | `--t3` / `--claudex`, s6 service definitions |
+| `~/.local/bin/*-run`, `s6-user-services-install` | `linux/bin/` | `--t3` only, supervised-service scripts |
+| `~/.config/s6-user/` | `linux/s6-user/` | `--t3` only, s6 service definitions |
 
 ### Project checkout directory
 
@@ -64,31 +61,6 @@ mkdir -p ~/dev/work
 
 Keep repository URLs and checkout scripts in private configuration outside
 this repository.
-
-### claudex on a remote box
-
-`--claudex` installs CLIProxyAPI alongside the harness so the box serves its
-own proxy on `127.0.0.1:8317`. The alternative — reverse-tunnelling the
-Mac's proxy — was rejected because it only works while the Mac is awake,
-which defeats the point of driving the box from a phone.
-
-No credential is committed and none is copied off the Mac. The proxy config
-is a template with an `__API_KEY__` placeholder; bootstrap generates a key
-on the box, writes it to `~/.config/cliproxyapi/{key,config.yaml}` at mode
-600, and never overwrites an existing pair — so re-running cannot invalidate
-a proxy you have already logged in to. Upstream auth is a one-time device
-code flow that needs no browser on the box:
-
-```sh
-~/.local/bin/cli-proxy-api -config ~/.config/cliproxyapi/config.yaml \
-    -codex-device-login
-```
-
-The proxy runs as the `cliproxyapi` s6 service, so it comes back after a pod
-restart without anybody logging in.
-
-Note that `codex-review` still will not run here: it orchestrates reviewer
-sessions in cmux panes, and cmux is macOS-native.
 
 ### Supervised services
 
@@ -116,7 +88,6 @@ so a service that fails at startup spins at full CPU without one; every
 | Service | Does |
 |---|---|
 | `t3-serve` | T3 Code server on 127.0.0.1:3773 |
-| `cliproxyapi` | the local proxy claudex drives, on 127.0.0.1:8317 |
 | `tfy-activity-observer` | samples the idle-shutdown judge once a minute |
 
 Opting out is one flag file, `~/.config/s6-user/<name>.disabled`. A flagged
@@ -131,10 +102,8 @@ anyway, and a service somebody stopped by hand should stay stopped.
 
 A definition may carry an executable `check`; if it exits non-zero the
 service is skipped rather than registered. `t3-serve` checks for the `t3`
-shim and `cliproxyapi` for the proxy binary and config, which is what lets
-`--t3` and `--claudex` install the whole service layer without a box that ran
-only one of them supervising a service that restarts every five seconds
-because its binary is missing.
+shim, so a box where that binary is missing does not supervise a service
+that restarts every five seconds.
 
 ### T3 Code server
 
@@ -284,7 +253,7 @@ foreground group. The gauges are `tfy_ssh_server_active_sessions` and
 `tfy_ssh_server_active_foreground_processes`.
 
 The second rule is the one that bites: **an s6 service has no terminal, so the
-judge cannot see it.** `t3-serve` and `cliproxyapi` are invisible to it. A box
+judge cannot see it.** `t3-serve` is invisible to it. A box
 doing real work through T3, with nobody sshed in, reads as idle.
 
 Hence the `keep` session in `bashrc.linux` — `tmux new-session -d -s keep
@@ -314,7 +283,6 @@ into the image, that is the runbook:
 ssh <box>                       # the login hook does the work
 tmux ls                         # expect: keep
 s6-svstat /var/run/s6/services/t3-serve
-s6-svstat /var/run/s6/services/cliproxyapi
 s6-svstat /var/run/s6/services/tfy-activity-observer
 t3 connect status --json        # expect linked true, relayClient not "missing"
 curl -s 127.0.0.1:49155/metrics | grep tfy_ssh

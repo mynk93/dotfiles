@@ -181,7 +181,7 @@ update-t3() {
 #
 # An s6 service does not qualify. The judge counts processes that own a
 # controlling terminal and sit in its foreground group, and a supervised
-# service has no terminal -- so t3-serve and cliproxyapi are invisible to it.
+# service has no terminal -- so t3-serve is invisible to it.
 # A tmux-hosted job is the sanctioned answer, and this is the smallest one
 # that exists. Idempotent: the has-session check makes re-sourcing a no-op.
 if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1; then

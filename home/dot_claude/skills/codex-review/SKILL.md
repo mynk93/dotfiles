@@ -14,9 +14,9 @@ fixes — and then resumes that same session to have the fixes signed off, which
 is a required step rather than an offer.
 
 The reviewer runs through the Codex CLI itself (`codex exec`), on its own
-authentication and its own harness. Nothing routes through CLIProxyAPI or
-`claudex`. Both the model *and* the harness differ from the authoring session,
-which is a wider gap than sharing a harness could give.
+authentication and its own harness. Both the model *and* the harness differ
+from the authoring session, which is a wider gap than sharing a harness could
+give.
 
 ## Principles
 
@@ -92,8 +92,7 @@ so the pane's redirect stays inside the disposable tree.
   `git worktree remove --force .worktrees/codex-review` — if the registration
   was already pruned, `git worktree prune && rm -rf .worktrees/codex-review`.
 - `codex` must be on PATH and authenticated — check with `codex login status`.
-  It carries its own credentials under `~/.codex/`, so a working `claudex`
-  proves nothing here and CLIProxyAPI being down is irrelevant to this skill.
+  It carries its own credentials under `~/.codex/`.
 
 ### 2. Bundle context
 
@@ -190,9 +189,8 @@ them. Read them off that line and inline the literal values in every later step.
 A step-5 waiter built with an empty `$WT` polls `/.review/out/rc`, never finds
 it, and burns the full timeout before reporting a bogus stall.
 
-There is no session id to pin here, and that is the one structural difference
-from the `claudex` version: Codex mints its own thread id instead of accepting
-one. It arrives as the very first line of the stream
+There is no session id to pin here: Codex mints its own thread id instead of
+accepting one. It arrives as the very first line of the stream
 (`{"type":"thread.started","thread_id":"…"}`), so step 5 lifts it out of
 `raw.jsonl` once the run ends and persists it to `.review/out/sid` for the
 follow-up steps.
