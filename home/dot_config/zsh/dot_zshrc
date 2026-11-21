@@ -19,6 +19,12 @@ setopt SHARE_HISTORY           # share history across all running shells
 # treating /a/long/path as one word.
 WORDCHARS="${WORDCHARS//\//}"
 
+# Emacs keys, stated outright. zsh picks vi mode when $EDITOR or $VISUAL
+# contains "vi", which is the case wherever the editor is vim, and then
+# Ctrl-A / Ctrl-E insert literal characters. This has to come before the
+# plugins and fzf load, so that they bind into the emacs keymap.
+bindkey -e
+
 # ── Plugins via antidote ────────────────────────────────────
 # Homebrew provides antidote on macOS. On Linux, ubuntu/bootstrap.sh clones
 # it to $ZDOTDIR/.antidote, the path antidote's own README uses.
@@ -34,6 +40,11 @@ antidote load
 # cycle through matching history entries — OMZ's default behavior.
 bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
+# The same keys in application mode. Debian and Ubuntu's /etc/zsh/zshrc puts
+# the terminal in that mode at every prompt, and the arrows then send ^[O_
+# instead of ^[[_.
+bindkey '^[OA' history-substring-search-up
+bindkey '^[OB' history-substring-search-down
 
 # ── Tool integrations ─────────────────────────────────────
 # Smart cd via zoxide. `z foo` jumps to the most-frecent dir matching
@@ -44,7 +55,9 @@ eval "$(zoxide init zsh)"
 #   Ctrl-R — fuzzy history search
 #   Ctrl-T — insert file path
 #   Alt-C  — cd to a fuzzy-picked directory
-source <(fzf --zsh)
+# Skipped without a terminal: the script toggles the zle option, which zsh
+# refuses there and reports as "can't change option: zle".
+[[ -t 0 ]] && source <(fzf --zsh)
 
 # Use fd as fzf's source — respects .gitignore and is faster than find.
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
@@ -83,6 +96,7 @@ bindkey '^I' expand-or-complete
 # forward-char behavior — zsh-autosuggestions hooks forward-char as an
 # accept widget out of the box; binding it explicitly documents the intent).
 bindkey '^[[C' autosuggest-accept
+bindkey '^[OC' autosuggest-accept   # application mode, as for Up/Down above
 
 # ── Theme ──────────────────────────────────────────────────
 source "${ZDOTDIR:-$HOME}/themes/mynk.zsh"

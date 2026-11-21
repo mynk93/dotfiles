@@ -13,11 +13,19 @@ if [[ -x /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-# Local user binaries.
+# Local user binaries. -U keeps one copy of each entry when a nested shell
+# sources this file again.
+typeset -U path PATH
 export PATH="$HOME/.local/bin:$PATH"
 
-# GPG agent integration for commit signing.
-export GPG_TTY=$(tty)
+# GPG agent integration for commit signing. Only with a terminal: without
+# one `tty` prints "not a tty", and that text would become the value.
+[[ -t 0 ]] && export GPG_TTY=$(tty)
+
+# Debian and Ubuntu's /etc/zsh/zshrc runs compinit before ~/.zshrc does.
+# .zshrc runs it itself, after the plugins have extended fpath, so the global
+# one is a wasted pass that also leaves a second dump file behind.
+skip_global_compinit=1
 
 # Default editor. `--wait` is required so tools that read the saved file
 # (git commit, crontab -e, gh pr create, visudo) block until zed closes
