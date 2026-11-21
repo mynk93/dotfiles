@@ -92,4 +92,4 @@ for entry in "${TOOLS[@]}"; do
 done
 
 echo
-echo "Done. Ensure $BIN is on PATH (bashrc.linux exports it)."
+echo "Done. Ensure $BIN is on PATH (bashrc.common exports it)."

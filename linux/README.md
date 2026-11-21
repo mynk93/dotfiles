@@ -4,6 +4,10 @@ Bootstrap for a Linux box — a k8s dev pod, a shared VM, anything where you
 land in a bash shell with no root and want the same muscle memory as the
 Mac.
 
+For an Ubuntu machine you administer (sudo, apt, systemd), use
+[`ubuntu/`](../ubuntu/README.md). It reuses the portable steps from here and
+leaves out the pod-specific ones.
+
 ## Why this sits outside `home/`
 
 `.chezmoiroot` points chezmoi at `home/`, so nothing in this directory is
@@ -41,7 +45,8 @@ steps are idempotent, so re-running is the upgrade path.
 | `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
 | `~/.vimrc` | `home/dot_vimrc` | verbatim |
-| `~/.config/bash/bashrc.linux` | `linux/bashrc.linux` | sourced from `~/.bashrc` |
+| `~/.config/bash/bashrc.common` | `linux/bashrc.common` | portable shell config, shared with `ubuntu/` |
+| `~/.config/bash/bashrc.linux` | `linux/bashrc.linux` | pod-only parts; sources `bashrc.common`; sourced from `~/.bashrc` |
 | `~/.config/bash/local.bash` | generated | per-machine, never committed |
 | `~/.gitconfig` | `linux/gitconfig` | no `[user]` block, see below |
 | `~/.config/git/local` | generated | git identity, never committed |

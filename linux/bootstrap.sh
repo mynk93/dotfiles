@@ -167,6 +167,8 @@ fi
 if [[ "$DO_SHELL" == 1 ]]; then
     echo "==> Installing shell config"
     mkdir -p ~/.config/bash
+    # bashrc.linux sources bashrc.common, so the two travel together.
+    cp "$REPO/linux/bashrc.common" ~/.config/bash/bashrc.common
     cp "$REPO/linux/bashrc.linux" ~/.config/bash/bashrc.linux
 
     # Replace any previously managed block rather than appending a second.
@@ -193,7 +195,7 @@ PY
         printf '[ -f ~/.config/bash/bashrc.linux ] && . ~/.config/bash/bashrc.linux\n'
         printf '%s\n' "$END_MARK"
     } >> ~/.bashrc
-    echo "    ~/.config/bash/bashrc.linux installed and sourced from ~/.bashrc"
+    echo "    ~/.config/bash/bashrc.{common,linux} installed and sourced from ~/.bashrc"
 
     # Per-machine settings live outside version control. bashrc.linux sources
     # ~/.config/bash/local.bash if it exists; nothing seeds it any more.
