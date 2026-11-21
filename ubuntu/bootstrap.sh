@@ -43,13 +43,18 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APT_PACKAGES=(
     git curl vim gnupg btop python3
     zsh            # login shell; config comes from home/dot_config/zsh
-    nodejs npm     # runtime for the global npm CLIs installed below
     chafa          # image previews in yazi
-    proxytunnel    # tunnel TCP connections through HTTPS proxies
+    fontconfig     # fc-cache, for the Nerd Font below
+    xz-utils       # the Nerd Font release is a .tar.xz
 )
 
-# Global npm CLIs, mirroring home/.chezmoiscripts/run_once_after_npm-tools.
-NPM_PACKAGES=(hunkdiff)   # provides `hunk`, used by prdiff in functions.zsh
+# Global Python CLIs, mirroring home/.chezmoiscripts/run_once_after_uv-tools.
+UV_TOOLS=(truefoundry)   # TrueFoundry CLI (provides `tfy`)
+
+# The font the mynk.zsh prompt's glyphs come from; the Brewfile's
+# font-fira-code-nerd-font cask. Only terminals running on this machine use
+# it. A terminal you connect from renders with its own fonts.
+NERD_FONT=FiraCode
 
 GPG_KEY=""
 DO_APT=1
@@ -125,19 +130,29 @@ if [[ -n "$GPG_KEY" && "$DO_CONFIGS" == 1 ]]; then
     echo
 fi
 
-# ── 4. Node CLIs and yazi ──────────────────────────────────
-# The two macOS run_once scripts that carry over. apt's npm installs global
-# packages under /usr by default, which needs root; pointing its prefix at
-# ~/.local keeps them in the same place as every other tool here.
+# ── 4. uv tools, font and yazi ─────────────────────────────
+# The macOS run_once scripts that carry over.
 if [[ "$DO_TOOLS" == 1 ]]; then
     export PATH="$HOME/.local/bin:$PATH"
-    if command -v npm >/dev/null 2>&1; then
-        echo "==> Installing global npm CLIs: ${NPM_PACKAGES[*]}"
-        npm config set prefix "$HOME/.local"
-        npm install -g --silent "${NPM_PACKAGES[@]}"
+    if command -v uv >/dev/null 2>&1; then
+        echo "==> Installing uv tools: ${UV_TOOLS[*]}"
+        for tool in "${UV_TOOLS[@]}"; do
+            # Idempotent: a no-op when the tool is already installed.
+            uv tool install --quiet "$tool"
+        done
     else
-        echo "    npm not found; skipping ${NPM_PACKAGES[*]} (run without --skip-apt)"
+        echo "    uv not found; skipping ${UV_TOOLS[*]}"
     fi
+
+    echo "==> Installing $NERD_FONT Nerd Font"
+    font_dir="$HOME/.local/share/fonts/${NERD_FONT}NerdFont"
+    mkdir -p "$font_dir"
+    curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${NERD_FONT}.tar.xz" \
+        | tar -xJ -C "$font_dir"
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -f "$font_dir"
+    fi
+    echo "    $(find "$font_dir" -name '*.ttf' | wc -l) font files in ${font_dir/#$HOME/\~}"
     echo
 fi
 

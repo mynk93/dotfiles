@@ -37,9 +37,10 @@ configs, and writes `~/.gitconfig`. `ubuntu/bootstrap.sh` runs it with
 
 | | `linux/` (rootless pod) | `ubuntu/` (your machine) |
 |---|---|---|
-| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3, zsh, nodejs, npm, chafa, proxytunnel |
+| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3, zsh, chafa, fontconfig, xz-utils |
 | CLI tools | `install-tools.sh` into `~/.local/bin` | the same script |
-| npm CLIs | none | `hunkdiff`, with npm's prefix set to `~/.local` |
+| uv tools | none | `truefoundry`, which provides `tfy` |
+| Font | none | FiraCode Nerd Font in `~/.local/share/fonts` |
 | Login shell | bash | zsh, from `home/dot_zshenv` and `home/dot_config/zsh` |
 | bash config | `bashrc.common` + `bashrc.linux` | `bashrc.common` + `bashrc.ubuntu` |
 | yazi | not installed | config copied, plugins installed with `ya pkg install` |
@@ -59,19 +60,20 @@ scripts and agents still start it.
 The zsh config is the macOS one, not a copy. Its macOS-only lines are guarded
 on `$OSTYPE`: `EDITOR` is `zed --wait` on macOS and `vim` elsewhere, the `ip`
 alias exists only on macOS, `explorer` maps to `xdg-open`, and the `zed`
-aliases fall back to `$EDITOR`. antidote comes from Homebrew on macOS and
-from a clone at `~/.config/zsh/.antidote` here. Per-machine settings go in
+aliases fall back to `$EDITOR`. `prdiff` and the remote `update-t3` are
+defined on macOS only. antidote comes from Homebrew on macOS and from a
+clone at `~/.config/zsh/.antidote` here. Per-machine settings go in
 `~/.config/zsh/local.zsh`.
 
-The prompt needs a Nerd Font in the terminal you connect from, not on this
-machine.
+The FiraCode Nerd Font is installed for terminals that run on this machine.
+A terminal you connect from draws the prompt with its own fonts, so it needs
+a Nerd Font too.
 
 ### What is left out of the Brewfile
 
 `mpv` and Wireshark (desktop apps, and `mpv` pulls in a large dependency
-tree), the GUI casks, the Nerd Font, `pinentry-mac`, and the TrueFoundry CLI
-from the uv-tools script. `uv` itself is installed, so
-`uv tool install truefoundry` adds it.
+tree), the GUI casks, `pinentry-mac`, `proxytunnel`, and `node` with
+`hunkdiff`, which only `prdiff` used.
 
 ## What it does not do
 
