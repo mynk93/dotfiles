@@ -9,6 +9,12 @@
 # ── Shared config ──────────────────────────────────────────
 [[ -f "$HOME/.config/bash/bashrc.common" ]] && . "$HOME/.config/bash/bashrc.common"
 
+# ── Pod-only aliases ───────────────────────────────────────
+# Linux analogue of the macOS `ipconfig getifaddr en0`. Kept out of
+# bashrc.common because it shadows iproute2's `ip`, which a machine you
+# administer needs.
+alias ip='hostname -I | cut -d" " -f1'
+
 # ── Machine-specific overrides ─────────────────────────────
 # Not in version control. Work tokens, machine-specific paths, etc.
 [[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"

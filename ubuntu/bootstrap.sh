@@ -57,11 +57,18 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ -n "$GPG_KEY" && "$DO_CONFIGS" == 0 ]]; then
+    echo "bootstrap: --gpg-key writes git config, so it cannot be combined with --skip-configs" >&2
+    exit 1
+fi
+
 # ── 1. System packages ─────────────────────────────────────
 if [[ "$DO_APT" == 1 ]]; then
     echo "==> Installing apt packages: ${APT_PACKAGES[*]}"
     sudo apt-get update -qq
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${APT_PACKAGES[@]}"
+    # Errors still reach stderr; the per-package progress does not.
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        -o Dpkg::Use-Pty=0 "${APT_PACKAGES[@]}" >/dev/null
     echo
 fi
 
@@ -75,7 +82,9 @@ fi
 if [[ -z "$GPG_KEY" ]]; then
     GPG_KEY="$(git config --file "$HOME/.config/git/local" user.signingkey 2>/dev/null || true)"
 fi
+echo "==> Running the portable steps (linux/bootstrap.sh --skip-shell)"
 "$REPO/linux/bootstrap.sh" --skip-shell "${PASSTHROUGH[@]}"
+echo
 
 # ── 3. Commit signing ──────────────────────────────────────
 # linux/gitconfig carries no signing settings because a pod holds no key. A

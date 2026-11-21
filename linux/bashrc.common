@@ -97,8 +97,6 @@ alias bashsource='source ~/.bashrc'
 # ── Tooling shortcuts ──────────────────────────────────────
 alias cc='claude'
 command -v lazygit >/dev/null 2>&1 && alias lzh='lazygit'
-# Linux analogue of the macOS `ipconfig getifaddr en0`.
-alias ip='hostname -I | cut -d" " -f1'
 
 # ── Tool integrations ──────────────────────────────────────
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash)"

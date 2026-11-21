@@ -21,6 +21,10 @@ skips the one step that needs sudo. `--skip-tools`, `--skip-claude`,
 `--skip-configs` and `--skip-shell` narrow what runs. Every step is
 idempotent, so re-running is the upgrade path.
 
+The Claude step replaces `~/.claude/CLAUDE.md`, `rules/`, `skills/` and
+`~/.vimrc` with the versions in this repo. Only `settings.json` is backed up
+first. Pass `--skip-claude` on a machine whose copies you have edited by hand.
+
 ## How it relates to `linux/`
 
 `linux/bootstrap.sh` does four things that have nothing to do with pods: it
@@ -79,11 +83,20 @@ signing key in the next step.
 ### Signing key
 
 ```sh
+email=you@example.com
 gpg --batch --passphrase '' --quick-generate-key \
-    "Your Name <you@example.com>" ed25519 sign never
-key=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10; exit}')
+    "Your Name <$email>" ed25519 sign never
+key=$(gpg --list-secret-keys --with-colons "$email" | awk -F: '/^fpr/{print $10; exit}')
 gpg --armor --export "$key" | gh gpg-key add - --title "$(hostname)"
 ~/.dotfiles/ubuntu/bootstrap.sh --skip-apt --skip-tools --skip-claude --gpg-key "$key"
+```
+
+Check it with a throwaway commit. It should sign without prompting:
+
+```sh
+d=$(mktemp -d) && git -C "$d" init -q \
+    && git -C "$d" commit -q --allow-empty -m "test: Check signing" \
+    && git -C "$d" log --show-signature -1
 ```
 
 The email must be a verified address on the GitHub account, or commits show
