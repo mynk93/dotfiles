@@ -13,12 +13,15 @@ sudo apt-get install -y git
 git clone https://github.com/mynk93/dotfiles.git ~/.dotfiles
 ~/.dotfiles/ubuntu/bootstrap.sh \
     --git-name "Your Name" --git-email you@example.com
-exec bash -l
+exec zsh -l
 ```
 
+zsh becomes the login shell, reading the same config as the Mac. Log out and
+back in for that to reach every new terminal.
+
 `--gpg-key KEYID` turns on commit and tag signing (see below). `--skip-apt`
-skips the one step that needs sudo. `--skip-tools`, `--skip-claude`,
-`--skip-configs` and `--skip-shell` narrow what runs. Every step is
+and `--skip-chsh` skip the two steps that need sudo. `--skip-tools`,
+`--skip-claude`, `--skip-configs` and `--skip-shell` narrow what runs. Every step is
 idempotent, so re-running is the upgrade path.
 
 The Claude step replaces `~/.claude/CLAUDE.md`, `rules/`, `skills/` and
@@ -34,9 +37,12 @@ configs, and writes `~/.gitconfig`. `ubuntu/bootstrap.sh` runs it with
 
 | | `linux/` (rootless pod) | `ubuntu/` (your machine) |
 |---|---|---|
-| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3 |
+| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3, zsh, nodejs, npm, chafa, proxytunnel |
 | CLI tools | `install-tools.sh` into `~/.local/bin` | the same script |
-| Shell | `bashrc.common` + `bashrc.linux` | `bashrc.common` + `bashrc.ubuntu` |
+| npm CLIs | none | `hunkdiff`, with npm's prefix set to `~/.local` |
+| Login shell | bash | zsh, from `home/dot_zshenv` and `home/dot_config/zsh` |
+| bash config | `bashrc.common` + `bashrc.linux` | `bashrc.common` + `bashrc.ubuntu` |
+| yazi | not installed | config copied, plugins installed with `ya pkg install` |
 | Services | s6, re-registered on login | systemd; nothing to do here |
 | T3 Code | `--t3`: npm install, nvm shims, s6 | `t3 up`, which installs its own unit |
 | Idle shutdown | tmux `keep` session | not applicable |
@@ -45,7 +51,27 @@ configs, and writes `~/.gitconfig`. `ubuntu/bootstrap.sh` runs it with
 
 `bashrc.common` is the portable shell config: environment, history,
 aliases, tool integrations, readline. `bashrc.ubuntu` adds `GPG_TTY` and the
-per-machine `local.bash` hook, and nothing else.
+per-machine `local.bash` hook, and nothing else. bash keeps a config because
+scripts and agents still start it.
+
+### zsh
+
+The zsh config is the macOS one, not a copy. Its macOS-only lines are guarded
+on `$OSTYPE`: `EDITOR` is `zed --wait` on macOS and `vim` elsewhere, the `ip`
+alias exists only on macOS, `explorer` maps to `xdg-open`, and the `zed`
+aliases fall back to `$EDITOR`. antidote comes from Homebrew on macOS and
+from a clone at `~/.config/zsh/.antidote` here. Per-machine settings go in
+`~/.config/zsh/local.zsh`.
+
+The prompt needs a Nerd Font in the terminal you connect from, not on this
+machine.
+
+### What is left out of the Brewfile
+
+`mpv` and Wireshark (desktop apps, and `mpv` pulls in a large dependency
+tree), the GUI casks, the Nerd Font, `pinentry-mac`, and the TrueFoundry CLI
+from the uv-tools script. `uv` itself is installed, so
+`uv tool install truefoundry` adds it.
 
 ## What it does not do
 

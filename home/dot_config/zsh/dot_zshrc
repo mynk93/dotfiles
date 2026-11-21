@@ -20,7 +20,13 @@ setopt SHARE_HISTORY           # share history across all running shells
 WORDCHARS="${WORDCHARS//\//}"
 
 # ── Plugins via antidote ────────────────────────────────────
-source "$(brew --prefix)/opt/antidote/share/antidote/antidote.zsh"
+# Homebrew provides antidote on macOS. On Linux, ubuntu/bootstrap.sh clones
+# it to $ZDOTDIR/.antidote, the path antidote's own README uses.
+if (( $+commands[brew] )); then
+    source "$(brew --prefix)/opt/antidote/share/antidote/antidote.zsh"
+else
+    source "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh"
+fi
 antidote load
 
 # Bind up/down to substring-aware history search (provided by

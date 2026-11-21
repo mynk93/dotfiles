@@ -21,30 +21,42 @@ alias view='glow -p'
 # File finding — fd replaces find. `fd PATTERN` instead of `find . -name PATTERN`.
 alias find='fd'
 
-# Windows-style `explorer <path>` to open in Finder (macOS `open`).
-alias explorer='open'
+# Windows-style `explorer <path>`: Finder on macOS, the desktop's default
+# handler on Linux.
+if [[ "$OSTYPE" == darwin* ]]; then
+    alias explorer='open'
+else
+    alias explorer='xdg-open'
+fi
 
 # System monitor — btop replaces top/htop.
 alias top='btop'
 alias htop='btop'
 
-# Network
-alias ip="ipconfig getifaddr en0"
+# Network. macOS only: on Linux `ip` is iproute2, and shadowing it breaks
+# `ip a` and `ip route`.
+[[ "$OSTYPE" == darwin* ]] && alias ip="ipconfig getifaddr en0"
 
-# Reload / edit shell config
+# Reload / edit shell config. zed on macOS; $EDITOR (vim) where there is no
+# GUI editor.
 alias zshsource="source ${ZDOTDIR:-$HOME}/.zshrc"
-alias zshconfig="zed ${ZDOTDIR:-$HOME}/.zshrc"
+if [[ "$OSTYPE" == darwin* ]]; then
+    alias zshconfig="zed ${ZDOTDIR:-$HOME}/.zshrc"
+    alias cconfig="cd ~/.claude && zed ."
+    alias sshconfig="zed ~/.ssh/config"
+    alias gitconfig="zed ~/.gitconfig"
+else
+    alias zshconfig="\$EDITOR ${ZDOTDIR:-$HOME}/.zshrc"
+    alias cconfig="cd ~/.claude"
+    alias sshconfig="\$EDITOR ~/.ssh/config"
+    alias gitconfig="\$EDITOR ~/.gitconfig"
+fi
 
 # Navigation
 alias sshhome="cd ~/.ssh"
 alias awshome="cd ~/.aws"
-alias cconfig="cd ~/.claude && zed ."
 alias phome="cd ~/dev/work"
 alias sandbox="cd ~/sandbox"
-
-# Edit common configs
-alias sshconfig="zed ~/.ssh/config"
-alias gitconfig="zed ~/.gitconfig"
 
 # Tooling shortcuts
 alias cc="claude"

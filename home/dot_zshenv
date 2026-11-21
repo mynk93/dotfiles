@@ -23,7 +23,14 @@ export GPG_TTY=$(tty)
 # (git commit, crontab -e, gh pr create, visudo) block until zed closes
 # the buffer. Without it, zed forks immediately and the parent sees an
 # empty file. Git's core.editor in dot_gitconfig.tmpl matches.
-export EDITOR='zed --wait'
+#
+# Linux gets vim: ubuntu/bootstrap.sh deploys this file to machines with no
+# GUI editor, and vim already blocks, so it needs no --wait.
+if [[ "$OSTYPE" == darwin* ]]; then
+    export EDITOR='zed --wait'
+else
+    export EDITOR='vim'
+fi
 export VISUAL="$EDITOR"
 
 # Suppress Python venv activate-script (venv) PROMPT prefix — the prompt

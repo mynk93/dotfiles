@@ -40,7 +40,7 @@ steps are idempotent, so re-running is the upgrade path.
 
 | Path | From | Notes |
 |---|---|---|
-| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor |
+| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor, uv, xh, jless, lazydocker, databricks, yazi, ya |
 | `~/.local/bin/claude` | `claude.ai/install.sh` | `--claude-code` only |
 | `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
@@ -370,5 +370,6 @@ prefix history search on Up/Down, case-insensitive completion — which are
 close but not the same thing.
 
 Dropped for missing dependencies: `prdiff` (`gh` is installed now, but it
-also needs `hunk`, which comes from npm rather than the Brewfile), the `y`
-yazi wrapper, `lzd` / `dbx`.
+also needs `hunk`, which comes from npm rather than the Brewfile) and the `y`
+yazi wrapper. `yazi`, `lazydocker` and `databricks` are installed now, but
+`bashrc.common` does not alias them yet.
