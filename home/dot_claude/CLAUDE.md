@@ -121,6 +121,31 @@ Follow Conventional Commits 1.0.0, with these specifics:
 - Prefer functions that can be tested without mocking core dependencies (SQL,
   Redis). Where that is not possible, cover them with an integration test.
 
+## Code comments
+
+A comment records what the code cannot show. Its reader is a maintainer who
+opens the file a year from now and has never seen this task, issue, PR, or
+conversation.
+
+- **CC-1** Default to no comment. Let names and structure say what the code
+  does. Docstrings, test docstrings included, follow the same bar: write one
+  only when it carries a CC-2 fact.
+- **CC-2** Comment only a fact a maintainer would otherwise get wrong: a
+  non-obvious constraint or invariant, an external system's quirk, a unit or
+  timezone trap, a security reason, or why the obvious simpler approach
+  breaks. State the fact in present tense, in one or two lines.
+- **CC-3** Write no reactive comments. A reactive comment answers the change
+  instead of the code: the incident or bug that prompted it, what the code did
+  before, "added for", "now", "fixed", issue or PR numbers, planning or ticket
+  IDs, replies to review feedback. That history goes in the commit message and
+  the PR. Test each comment against the reader above: if they need it to
+  understand the code, keep it as a present-tense fact; otherwise delete it.
+- **CC-4** Keep comments true. When your change makes a nearby comment wrong,
+  fix or delete it in the same change.
+- **CC-5** Hold your own diff to this bar. Leave existing comments outside it
+  alone unless I ask for a cleanup, and never purge comments in vendored or
+  upstream-fork code: the churn bloats every future upstream merge.
+
 ## Writing tests
 
 1. Compare results to independent, pre-computed expectations or to properties
