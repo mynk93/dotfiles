@@ -109,7 +109,34 @@ if [[ "$DO_CLAUDE" == 1 ]]; then
     cp -r "$src/rules/." ~/.claude/rules/
     cp "$src/scripts/executable_context-bar.sh" ~/.claude/scripts/context-bar.sh
     chmod 755 ~/.claude/scripts/context-bar.sh
-    cp -r "$src/skills/." ~/.claude/skills/
+    # pr-sanity runs through review_workflow.py and reads references/.
+    cp "$src/scripts/review_workflow.py" ~/.claude/scripts/review_workflow.py
+    mkdir -p ~/.claude/references
+    cp -r "$src/references/." ~/.claude/references/
+
+    # On Linux a Claude plugin supplies claude-review, codex-review and
+    # unslop; the dotfiles review skills drive cmux, a macOS-only terminal,
+    # and using-cmux has nothing to drive. Removing them also clears copies
+    # an earlier run left behind.
+    skip_skills=" claude-review codex-review unslop using-cmux "
+    for skill_src in "$src"/skills/*/; do
+        name="$(basename "$skill_src")"
+        dest="$HOME/.claude/skills/$name"
+        rm -rf "$dest"
+        [[ "$skip_skills" == *" $name "* ]] && continue
+        cp -r "$skill_src" "$dest"
+        # -depth renames a directory's contents before the directory itself.
+        find "$dest" -depth \( -name 'private_*' -o -name 'executable_*' -o -name 'dot_*' \) -print0 |
+            while IFS= read -r -d '' path; do
+                dir="${path%/*}" base="${path##*/}" mode=""
+                if [[ "$base" == private_* ]]; then base="${base#private_}" mode+=" go-rwx"; fi
+                if [[ "$base" == executable_* ]]; then base="${base#executable_}" mode+=" +x"; fi
+                if [[ "$base" == dot_* ]]; then base=".${base#dot_}"; fi
+                mv "$path" "$dir/$base"
+                for m in $mode; do chmod "$m" "$dir/$base"; done
+            done
+    done
+    echo "    skills installed, skipped:$skip_skills"
 
     # Preserve whatever the box came with, once.
     if [[ -f ~/.claude/settings.json && ! -f ~/.claude/settings.json.bak ]]; then

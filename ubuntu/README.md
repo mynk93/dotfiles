@@ -24,9 +24,13 @@ and `--skip-chsh` skip the two steps that need sudo. `--skip-tools`,
 `--skip-claude`, `--skip-configs` and `--skip-shell` narrow what runs. Every step is
 idempotent, so re-running is the upgrade path.
 
-The Claude step replaces `~/.claude/CLAUDE.md`, `rules/`, `skills/` and
-`~/.vimrc` with the versions in this repo. Only `settings.json` is backed up
-first. Pass `--skip-claude` on a machine whose copies you have edited by hand.
+The Claude step replaces `~/.claude/CLAUDE.md`, `rules/`, each skill in this
+repo and `~/.vimrc` with the versions here. It deletes `claude-review`,
+`codex-review`, `unslop` and `using-cmux` from `~/.claude/skills/` instead,
+because a Claude plugin supplies the first three on Linux and cmux is
+macOS-only (see [`linux/`](../linux/README.md#skills-left-to-a-plugin)).
+Only `settings.json` is backed up first. Pass `--skip-claude` on a machine
+whose copies you have edited by hand.
 
 ## How it relates to `linux/`
 
