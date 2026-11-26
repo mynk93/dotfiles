@@ -130,14 +130,18 @@ down` fails with `rootless netns: kill network process: permission denied`
 and leaves a stopped container behind. A second `down` removes it.
 Containers on the default network are not affected.
 
-The fix is one rule in the profile, which an upstream passt patch from June
-2026 adds as well. The profile has no `local/` include, so this edits a
-conffile, and dpkg asks about it on the next passt upgrade:
+The fix is one rule in the profile, letting `pasta` receive SIGTERM, the
+only signal Podman's teardown sends, from the `podman` profile. An upstream
+passt patch from June 2026 adds the same grant. The profile has no `local/`
+include, so this edits a conffile. The checksum guard limits the edit to the
+packaged file and stops a second insertion on a re-run. dpkg keeps the edit
+while the packaged profile is unchanged, and asks before replacing it.
 
 ```sh
-sudo sed -i 's|^  include <abstractions/pasta>$|&\n  signal (receive) peer=podman,|' \
-    /etc/apparmor.d/usr.bin.pasta
-sudo apparmor_parser -r /etc/apparmor.d/usr.bin.pasta
+profile=/etc/apparmor.d/usr.bin.pasta
+printf '%s  %s\n' c7b2926613394e4de6f5f146a87d0b63 "$profile" | md5sum --check --status &&
+  sudo sed -i '/^  include <abstractions\/pasta>$/a\  signal (receive) set=(term) peer=podman,' "$profile" &&
+  sudo apparmor_parser -r "$profile"
 ```
 
 ### What is left out of the Brewfile
