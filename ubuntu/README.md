@@ -41,7 +41,7 @@ configs, and writes `~/.gitconfig`. `ubuntu/bootstrap.sh` runs it with
 
 | | `linux/` (rootless pod) | `ubuntu/` (your machine) |
 |---|---|---|
-| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3, zsh, chafa, fontconfig, xz-utils |
+| System packages | none, no root | `apt`: git, curl, vim, gnupg, btop, python3, zsh, chafa, fontconfig, xz-utils, podman, uidmap, passt; docker-compose-v2 without recommends |
 | CLI tools | `install-tools.sh` into `~/.local/bin` | the same script |
 | uv tools | none | `truefoundry`, which provides `tfy` |
 | Font | none | FiraCode Nerd Font in `~/.local/share/fonts` |
@@ -53,6 +53,7 @@ configs, and writes `~/.gitconfig`. `ubuntu/bootstrap.sh` runs it with
 | Idle shutdown | tmux `keep` session | not applicable |
 | ssh agent | hand-rolled, fixed socket | none; `~/.ssh/config` names the key |
 | Commit signing | off, the pod holds no key | `--gpg-key` |
+| Containers | none, a pod cannot run them unprivileged | rootless Podman, socket-activated Docker API |
 
 `bashrc.common` is the portable shell config: environment, history,
 aliases, tool integrations, readline. `bashrc.ubuntu` adds `GPG_TTY` and the
@@ -72,6 +73,72 @@ clone at `~/.config/zsh/.antidote` here. Per-machine settings go in
 The FiraCode Nerd Font is installed for terminals that run on this machine.
 A terminal you connect from draws the prompt with its own fonts, so it needs
 a Nerd Font too.
+
+### Containers
+
+Podman, rootless. It has no daemon: a container is a child process of your
+user, so when the last container stops its memory is back. What stays is
+`catatonit`, a pause process of under a megabyte that holds the user
+namespace open. Docker Engine keeps `dockerd` and `containerd` resident
+whether or not anything runs, and they run as root.
+
+Tools that speak the Docker API (`docker-compose`, lazydocker,
+testcontainers) reach Podman through `podman.socket`. systemd holds the
+socket and starts `podman system service` on the first connection; the
+service exits after 5 idle seconds. `DOCKER_HOST` points at it from
+`~/.zshenv` and `bashrc.ubuntu` unless `DOCKER_HOST` or `DOCKER_CONTEXT` is
+already set, and `docker` is an alias for `podman` wherever Docker itself is
+absent.
+
+`podman compose` runs `docker-compose`. Ubuntu's `docker-compose-v2` package
+provides it, installed on its own with `--no-install-recommends`: it
+recommends `docker.io`, so a default install would bring the Docker daemon
+along. The package puts the binary only at the Docker CLI plugin path, so
+the bootstrap links it into `~/.local/bin`.
+
+The one Podman setting, silencing the notice `podman compose` prints before
+every call, is a drop-in at
+`~/.config/containers/containers.conf.d/compose.conf`, so per-user settings
+in `containers.conf` survive a re-run.
+
+Two habits matter on a shared host:
+
+- A port published as `-p 27017:27017` binds every interface, and Podman has
+  no setting that changes that default. Publish on loopback, `-p
+  127.0.0.1:27017:27017`, and write `127.0.0.1:` into every compose `ports`
+  entry. A service only other containers talk to needs no `ports` at all.
+- Give heavy services a memory limit (`--memory`, or `mem_limit` in
+  compose). A container runs in its own `libpod-*.scope` under the user
+  manager's `user.slice`, not in the cgroup of the shell that started it, so
+  a limit on that shell's slice does not reach it.
+
+Nothing restarts containers after a reboot. `--restart=always` needs
+`podman-restart.service`, which is deliberately not enabled: these are
+throwaway dev services.
+
+Avoid `podman system migrate` as a cleanup step. It stops every container of
+the user, including ones another session is using.
+
+#### AppArmor and compose teardown
+
+Ubuntu 26.04's `pasta` AppArmor profile (passt `0.0~git20260120`) does not
+let `pasta` receive signals from the `podman` profile. Networks Podman
+creates, which every compose project gets, run behind one shared `pasta`
+process that Podman stops with SIGTERM when the last container leaves. The
+kernel denies it, so the first `docker-compose down` or `podman compose
+down` fails with `rootless netns: kill network process: permission denied`
+and leaves a stopped container behind. A second `down` removes it.
+Containers on the default network are not affected.
+
+The fix is one rule in the profile, which an upstream passt patch from June
+2026 adds as well. The profile has no `local/` include, so this edits a
+conffile, and dpkg asks about it on the next passt upgrade:
+
+```sh
+sudo sed -i 's|^  include <abstractions/pasta>$|&\n  signal (receive) peer=podman,|' \
+    /etc/apparmor.d/usr.bin.pasta
+sudo apparmor_parser -r /etc/apparmor.d/usr.bin.pasta
+```
 
 ### What is left out of the Brewfile
 

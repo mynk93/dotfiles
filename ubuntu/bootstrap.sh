@@ -46,6 +46,9 @@ APT_PACKAGES=(
     chafa          # image previews in yazi
     fontconfig     # fc-cache, for the Nerd Font below
     xz-utils       # the Nerd Font release is a .tar.xz
+    podman         # rootless containers; see "Containers" in README.md
+    uidmap         # newuidmap/newgidmap, without which rootless podman fails
+    passt          # pasta, podman's default rootless network
 )
 
 # Global Python CLIs, mirroring home/.chezmoiscripts/run_once_after_uv-tools.
@@ -92,6 +95,12 @@ if [[ "$DO_APT" == 1 ]]; then
     # Errors still reach stderr; the per-package progress does not.
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
         -o Dpkg::Use-Pty=0 "${APT_PACKAGES[@]}" >/dev/null
+    # `podman compose` hands off to docker-compose. A separate install because
+    # this package recommends docker.io, and with recommends on, apt would
+    # bring the Docker daemon along.
+    echo "==> Installing docker-compose-v2 without recommends"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        -o Dpkg::Use-Pty=0 --no-install-recommends docker-compose-v2 >/dev/null
     echo
 fi
 
@@ -130,8 +139,9 @@ if [[ -n "$GPG_KEY" && "$DO_CONFIGS" == 1 ]]; then
     echo
 fi
 
-# ── 4. uv tools, font and yazi ─────────────────────────────
-# The macOS run_once scripts that carry over.
+# ── 4. uv tools, font, yazi and Podman ─────────────────────
+# The macOS run_once scripts that carry over, plus the Podman setup apt
+# cannot do.
 if [[ "$DO_TOOLS" == 1 ]]; then
     export PATH="$HOME/.local/bin:$PATH"
     if command -v uv >/dev/null 2>&1; then
@@ -157,6 +167,30 @@ if [[ "$DO_TOOLS" == 1 ]]; then
 fi
 
 if [[ "$DO_CONFIGS" == 1 ]]; then
+    echo "==> Installing Podman config"
+    # A drop-in rather than containers.conf itself, so a re-run leaves any
+    # per-user settings made there alone.
+    mkdir -p ~/.config/containers/containers.conf.d
+    cp "$REPO/home/dot_config/containers/containers.conf.d/compose.conf" \
+        ~/.config/containers/containers.conf.d/compose.conf
+    # The package installs only the Docker CLI plugin path; podman compose and
+    # bare `docker-compose` calls look on PATH.
+    compose_plugin=/usr/libexec/docker/cli-plugins/docker-compose
+    if [[ -x "$compose_plugin" ]]; then
+        mkdir -p ~/.local/bin
+        ln -sfn "$compose_plugin" ~/.local/bin/docker-compose
+        "$HOME/.local/bin/docker-compose" version
+    fi
+    # Socket-activated: systemd holds the socket and starts the API service on
+    # the first connection; the service exits again after 5 idle seconds.
+    if command -v podman >/dev/null 2>&1; then
+        systemctl --user enable --now podman.socket
+        echo "    compose.conf installed, podman.socket enabled"
+    else
+        echo "    compose.conf installed; podman not found, socket not enabled (run without --skip-apt)"
+    fi
+    echo
+
     echo "==> Installing yazi config"
     mkdir -p ~/.config/yazi
     cp "$REPO/home/dot_config/yazi/yazi.toml"    ~/.config/yazi/yazi.toml
