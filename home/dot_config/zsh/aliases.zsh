@@ -62,9 +62,6 @@ alias sandbox="cd ~/sandbox"
 alias cc="claude"
 alias lzh="lazygit"
 alias lzd="lazydocker"
-if (( $+commands[podman] && ! $+commands[docker] )); then
-    alias docker="podman"
-fi
 alias dbx="databricks"
 
 # Project scripts

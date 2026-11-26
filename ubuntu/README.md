@@ -87,8 +87,9 @@ testcontainers) reach Podman through `podman.socket`. systemd holds the
 socket and starts `podman system service` on the first connection; the
 service exits after 5 idle seconds. `DOCKER_HOST` points at it from
 `~/.zshenv` and `bashrc.ubuntu` unless `DOCKER_HOST` or `DOCKER_CONTEXT` is
-already set, and `docker` is an alias for `podman` wherever Docker itself is
-absent.
+already set. There is no `docker` command or alias: run `podman` for
+containers and images, and `docker-compose` or `podman compose` for compose
+files.
 
 `podman compose` runs `docker-compose`. Ubuntu's `docker-compose-v2` package
 provides it, installed on its own with `--no-install-recommends`: it

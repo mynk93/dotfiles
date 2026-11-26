@@ -19,12 +19,10 @@ if [[ -t 0 ]]; then
 fi
 
 # ── Podman ─────────────────────────────────────────────────
-# Mirrors ~/.zshenv and aliases.zsh.
-if command -v podman >/dev/null 2>&1; then
-    if [[ -z "${DOCKER_HOST:-}" && -z "${DOCKER_CONTEXT:-}" ]]; then
-        export DOCKER_HOST="unix://${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
-    fi
-    command -v docker >/dev/null 2>&1 || alias docker='podman'
+# Mirrors ~/.zshenv.
+if command -v podman >/dev/null 2>&1 \
+    && [[ -z "${DOCKER_HOST:-}" && -z "${DOCKER_CONTEXT:-}" ]]; then
+    export DOCKER_HOST="unix://${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
 fi
 
 # ── Machine-specific overrides ─────────────────────────────
