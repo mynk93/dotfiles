@@ -130,10 +130,10 @@ conversation.
 - **CC-1** Default to no comment. Let names and structure say what the code
   does. Docstrings, test docstrings included, follow the same bar: write one
   only when it carries a CC-2 fact.
-- **CC-2** Comment only a fact a maintainer would otherwise get wrong: a
-  non-obvious constraint or invariant, an external system's quirk, a unit or
-  timezone trap, a security reason, or why the obvious simpler approach
-  breaks. State the fact in present tense, in one or two lines.
+- **CC-2** Comment only a fact whose absence would make a maintainer break
+  the code: a non-obvious constraint or invariant, an external system's
+  quirk, a unit or timezone trap, a security reason, or why the obvious
+  simpler approach breaks. A true or useful fact is not enough.
 - **CC-3** Write no reactive comments. A reactive comment answers the change
   instead of the code: the incident or bug that prompted it, what the code did
   before, "added for", "now", "fixed", issue or PR numbers, planning or ticket
@@ -142,9 +142,16 @@ conversation.
   understand the code, keep it as a present-tense fact; otherwise delete it.
 - **CC-4** Keep comments true. When your change makes a nearby comment wrong,
   fix or delete it in the same change.
-- **CC-5** Hold your own diff to this bar. Leave existing comments outside it
-  alone unless I ask for a cleanup, and never purge comments in vendored or
-  upstream-fork code: the churn bloats every future upstream merge.
+- **CC-5** Before every commit, read each comment and docstring line the
+  staged diff adds, and delete or cut the ones that fail CC-1 to CC-3 and
+  CC-6. This includes review fixes: answer the reviewer in the reply, not in
+  the code. Leave existing comments outside your diff alone unless I ask for a
+  cleanup, and never purge comments in vendored or upstream-fork code: the
+  churn bloats every future upstream merge.
+- **CC-6** One line, present tense, a fragment is fine: `# epoch ms`, not
+  `# epoch ms of the final transcript`. No examples, no restating the name or
+  type, no list of callers. Two lines at most; what needs more goes in the
+  commit message. The Writing rules above do not apply to comments.
 
 ## Writing tests
 
