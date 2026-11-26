@@ -18,6 +18,13 @@ if [[ -t 0 ]]; then
     export GPG_TTY
 fi
 
+# ── Podman ─────────────────────────────────────────────────
+# Mirrors ~/.zshenv.
+if command -v podman >/dev/null 2>&1 \
+    && [[ -z "${DOCKER_HOST:-}" && -z "${DOCKER_CONTEXT:-}" ]]; then
+    export DOCKER_HOST="unix://${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/podman/podman.sock"
+fi
+
 # ── Machine-specific overrides ─────────────────────────────
 # Not in version control. Work tokens, machine-specific paths, etc.
 [[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"

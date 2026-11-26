@@ -18,6 +18,14 @@ fi
 typeset -U path PATH
 export PATH="$HOME/.local/bin:$PATH"
 
+# Docker-API clients (docker-compose, lazydocker, testcontainers) talk to
+# rootless Podman through its socket-activated API socket. Here, not in
+# .zshrc, so that non-interactive agent shells see it too.
+if [[ "$OSTYPE" == linux* && -z "$DOCKER_HOST" && -z "$DOCKER_CONTEXT" ]] \
+    && (( $+commands[podman] )); then
+    export DOCKER_HOST="unix://${XDG_RUNTIME_DIR:-/run/user/$UID}/podman/podman.sock"
+fi
+
 # GPG agent integration for commit signing. Only with a terminal: without
 # one `tty` prints "not a tty", and that text would become the value.
 [[ -t 0 ]] && export GPG_TTY=$(tty)
