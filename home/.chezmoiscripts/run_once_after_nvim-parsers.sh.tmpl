@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Install the tree-sitter parsers the nvim reader config needs.
+#
+# dot_config/nvim folds through nvim-ufo's treesitter provider, which falls
+# back to indent folds when the language has no parser — the slog folds
+# silently disappear rather than erroring. nvim-treesitter's main branch
+# compiles parsers via the tree-sitter CLI (declared in the Brewfile), so this
+# runs after brew bundle.
+#
+# Every skip path exits non-zero: chezmoi records a run_once_ script as done
+# only when it succeeds, so a failure here is retried on the next apply
+# instead of being silently marked complete.
+#
+# Parsers land in ~/.local/share/nvim/site/parser/ and are regenerable, so
+# they are not tracked by chezmoi.
+
+set -euo pipefail
+
+command -v nvim >/dev/null || { echo "[nvim-parsers] nvim not installed" >&2; exit 1; }
+command -v tree-sitter >/dev/null || { echo "[nvim-parsers] tree-sitter CLI missing" >&2; exit 1; }
+
+LANGS="python lua bash json yaml markdown toml"
+echo "[nvim-parsers] installing: ${LANGS}"
+
+nvim --headless -c "lua
+local ok, ts = pcall(require, 'nvim-treesitter')
+if not ok then
+  io.stderr:write('[nvim-parsers] nvim-treesitter not present yet; chezmoi apply will retry\n')
+  vim.cmd('cq')
+end
+local done = false
+local langs = {$(printf "'%s'," ${LANGS} | sed 's/,$//')}
+ts.install(langs):await(function() done = true end)
+vim.wait(300000, function() return done end, 200)
+-- install() logs download and build errors rather than failing the task, so
+-- check what actually landed.
+local installed = {}
+for _, lang in ipairs(ts.get_installed('parsers')) do installed[lang] = true end
+local missing = vim.tbl_filter(function(lang) return not installed[lang] end, langs)
+if #missing > 0 then
+  io.stderr:write('[nvim-parsers] not installed: ' .. table.concat(missing, ' ') .. '\n')
+  vim.cmd('cq')
+end
+" -c 'qa!'
+
+echo "[nvim-parsers] done"

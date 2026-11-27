@@ -1,0 +1,46 @@
+// Zed keymap
+//
+// For information on binding keys, see the Zed documentation:
+// https://zed.dev/docs/key-bindings
+//
+// To see the default key bindings run `zed: open default keymap`
+// from the command palette.
+[
+  {
+    // Progressive code folding: collapse the file to its function
+    // signatures, then open one body at a time.
+    //
+    // Slots chosen from the unbound cmd-k space — cmd-k cmd-b and
+    // cmd-k cmd-t are NOT free (editor::BlameHover / theme_selector).
+    //
+    // Defaults worth remembering alongside these:
+    //   cmd-k cmd-0  fold all         cmd-k cmd-j  unfold all
+    //   cmd-k cmd-[  fold recursive   cmd-k cmd-]  unfold recursive
+    //   cmd-k cmd-l  toggle fold      alt-cmd-[/]  fold / unfold lines
+    "context": "Editor && mode == full",
+    "bindings": {
+      "cmd-k cmd-f": "editor::FoldFunctionBodies",
+      "cmd-k cmd-e": "editor::ToggleFoldRecursive",
+      // One-handed drill-down: opens ONE level, leaving nested try/if/for
+      // blocks folded so you can keep descending. This is the key you hit
+      // repeatedly when walking a file, so it is a single keystroke.
+      // alt-e is unbound in Zed's defaults. NOT "cmd-q cmd-e": cmd-q is
+      // zed::Quit in the global context, and prefixing it kills keyboard quit.
+      "alt-e": "editor::ToggleFold"
+    }
+  },
+  {
+    // Zed puts language_selector on "cmd-k m" (cmd RELEASED before m)
+    // while every neighbouring chord is cmd-k cmd-<key>. Holding cmd
+    // lands on toolchain::AddToolchain instead. Bind the cmd-held form
+    // to the selector so both spellings work.
+    //
+    // toolchain::Select — switch the Python interpreter/venv basedpyright
+    // resolves against — ships with no default binding at all.
+    "context": "Workspace",
+    "bindings": {
+      "cmd-k cmd-m": "language_selector::Toggle",
+      "cmd-k cmd-v": "toolchain::Select"
+    }
+  }
+]
