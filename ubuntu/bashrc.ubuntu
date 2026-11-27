@@ -1,0 +1,23 @@
+# ~/.config/bash/bashrc.ubuntu — shell config for an Ubuntu machine you administer.
+#
+# Sourced from ~/.bashrc by ubuntu/bootstrap.sh. Everything portable lives in
+# bashrc.common, shared with the rootless-pod variant (linux/bashrc.linux).
+# The pod-only parts are deliberately absent: there is no s6 registration, no
+# T3 update function (`t3 update` does that on a systemd box), no idle-shutdown
+# sentinel, and no hand-rolled ssh agent.
+
+# ── Shared config ──────────────────────────────────────────
+[[ -f "$HOME/.config/bash/bashrc.common" ]] && . "$HOME/.config/bash/bashrc.common"
+
+# ── GPG ────────────────────────────────────────────────────
+# Mirrors ~/.zshenv. gpg-agent needs to know which terminal to prompt on if a
+# key ever carries a passphrase; without a terminal (an agent-run commit) the
+# variable is left unset rather than set to "not a tty".
+if [[ -t 0 ]]; then
+    GPG_TTY="$(tty)"
+    export GPG_TTY
+fi
+
+# ── Machine-specific overrides ─────────────────────────────
+# Not in version control. Work tokens, machine-specific paths, etc.
+[[ -f "$HOME/.config/bash/local.bash" ]] && . "$HOME/.config/bash/local.bash"

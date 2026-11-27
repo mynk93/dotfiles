@@ -37,6 +37,14 @@ TOOLS=(
     "cli/cli|gh_.+_linux_amd64.tar.gz|gh"
     "jesseduffield/lazygit|lazygit_.+_linux_x86_64.tar.gz|lazygit"
     "walles/moor|moor-v.+-linux-amd64|moor"
+    "astral-sh/uv|uv-x86_64-unknown-linux-musl.tar.gz|uv"
+    "ducaale/xh|xh-v.+-x86_64-unknown-linux-musl.tar.gz|xh"
+    "PaulJuliusMartinez/jless|jless-v.+-x86_64-unknown-linux-gnu.zip|jless"
+    "jesseduffield/lazydocker|lazydocker_.+_Linux_x86_64.tar.gz|lazydocker"
+    "databricks/cli|databricks_cli_.+_linux_amd64.tar.gz|databricks"
+    # One archive, two binaries: `ya` is yazi's package manager.
+    "sxyazi/yazi|yazi-x86_64-unknown-linux-musl.zip|yazi"
+    "sxyazi/yazi|yazi-x86_64-unknown-linux-musl.zip|ya"
 )
 
 if [[ -n "${1:-}" ]]; then
@@ -68,8 +76,15 @@ install_tool() {
     work="$TMP/$bin"
     mkdir -p "$work"
 
-    if [[ "$url" == *.tar.gz ]]; then
-        curl -fsSL "$url" | tar -xz -C "$work"
+    if [[ "$url" == *.tar.gz || "$url" == *.zip ]]; then
+        if [[ "$url" == *.zip ]]; then
+            # python3 rather than unzip: bootstrap.sh already needs it, and a
+            # bare box often has no unzip.
+            curl -fsSL "$url" -o "$work/archive.zip"
+            python3 -m zipfile -e "$work/archive.zip" "$work"
+        else
+            curl -fsSL "$url" | tar -xz -C "$work"
+        fi
         # Release layouts differ (some nest under a versioned dir), so search.
         found="$(find "$work" -type f -name "$bin" | head -1)"
         if [[ -z "$found" ]]; then
@@ -92,4 +107,4 @@ for entry in "${TOOLS[@]}"; do
 done
 
 echo
-echo "Done. Ensure $BIN is on PATH (bashrc.linux exports it)."
+echo "Done. Ensure $BIN is on PATH (bashrc.common exports it)."

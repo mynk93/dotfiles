@@ -4,6 +4,10 @@ Bootstrap for a Linux box — a k8s dev pod, a shared VM, anything where you
 land in a bash shell with no root and want the same muscle memory as the
 Mac.
 
+For an Ubuntu machine you administer (sudo, apt, systemd), use
+[`ubuntu/`](../ubuntu/README.md). It reuses the portable steps from here and
+leaves out the pod-specific ones.
+
 ## Why this sits outside `home/`
 
 `.chezmoiroot` points chezmoi at `home/`, so nothing in this directory is
@@ -36,12 +40,13 @@ steps are idempotent, so re-running is the upgrade path.
 
 | Path | From | Notes |
 |---|---|---|
-| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor |
+| `~/.local/bin/*` | GitHub Releases | eza, bat, fd, rg, fzf, zoxide, delta, glow, jq, gh, lazygit, moor, uv, xh, jless, lazydocker, databricks, yazi, ya |
 | `~/.local/bin/claude` | `claude.ai/install.sh` | `--claude-code` only |
-| `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script |
+| `~/.claude/` | `home/dot_claude/` | CLAUDE.md, rules, skills, statusline script, `review_workflow.py` and `references/` for pr-sanity; skips `claude-review`, `codex-review`, `unslop` and `using-cmux`, see below |
 | `~/.claude/settings.json` | `linux/claude/settings.json` | Linux variant, see below |
 | `~/.vimrc` | `home/dot_vimrc` | verbatim |
-| `~/.config/bash/bashrc.linux` | `linux/bashrc.linux` | sourced from `~/.bashrc` |
+| `~/.config/bash/bashrc.common` | `linux/bashrc.common` | portable shell config, shared with `ubuntu/` |
+| `~/.config/bash/bashrc.linux` | `linux/bashrc.linux` | pod-only parts; sources `bashrc.common`; sourced from `~/.bashrc` |
 | `~/.config/bash/local.bash` | generated | per-machine, never committed |
 | `~/.gitconfig` | `linux/gitconfig` | no `[user]` block, see below |
 | `~/.config/git/local` | generated | git identity, never committed |
@@ -352,6 +357,20 @@ Control retired in favour of T3 Code those are gone too, since
 `remoteControlAtStartup: true` would have every interactive `claude` on the
 box start a gateway nothing talks to.
 
+### Skills left to a plugin
+
+`bootstrap.sh` copies every skill under `home/dot_claude/skills/` except
+`claude-review`, `codex-review`, `unslop` and `using-cmux`, and deletes those
+four from `~/.claude/skills/` if an earlier run installed them. On Linux a
+Claude plugin supplies the first three, and the dotfiles copies of the two
+review skills drive cmux, a macOS-only terminal. `using-cmux` has nothing to
+drive there. Edit `skip_skills` in `bootstrap.sh` to change the list.
+
+While copying, the script also translates chezmoi name prefixes inside each
+skill: `private_` drops group and other access, `executable_` sets `+x`, and
+`dot_` becomes a leading dot. Without that, `clear-writing/private_SKILL.md`
+lands under a name Claude Code never loads.
+
 ## What does not carry over
 
 Dropped because it is macOS-only: `explorer` (`open`), `ip`
@@ -365,5 +384,6 @@ prefix history search on Up/Down, case-insensitive completion — which are
 close but not the same thing.
 
 Dropped for missing dependencies: `prdiff` (`gh` is installed now, but it
-also needs `hunk`, which comes from npm rather than the Brewfile), the `y`
-yazi wrapper, `lzd` / `dbx`.
+also needs `hunk`, which comes from npm rather than the Brewfile) and the `y`
+yazi wrapper. `yazi`, `lazydocker` and `databricks` are installed now, but
+`bashrc.common` does not alias them yet.
